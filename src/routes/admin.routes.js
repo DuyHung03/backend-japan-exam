@@ -9,18 +9,31 @@ const router = express.Router();
 router.use(protect);
 router.use(authorize("admin"));
 
-router.get("/users", adminController.getAllUsers);
+router.post("/users", adminController.getAllUsers);
 
-router.put(
-    "/users/:id/role",
-    [body("role").isIn(["user", "teacher", "admin"]).withMessage("Invalid role"), validate],
+router.post(
+    "/users/update-role",
+    [
+        body("userId").notEmpty().withMessage("User ID is required"),
+        body("role").isIn(["user", "teacher", "admin"]).withMessage("Invalid role"),
+        validate,
+    ],
     adminController.updateUserRole,
 );
 
-router.patch("/users/:id/toggle-status", adminController.toggleUserStatus);
-router.delete("/users/:id", adminController.deleteUser);
+router.post(
+    "/users/toggle-status",
+    [body("userId").notEmpty().withMessage("User ID is required"), validate],
+    adminController.toggleUserStatus,
+);
 
-router.get("/statistics", adminController.getStatistics);
-router.get("/statistics/export", adminController.exportStatistics);
+router.post(
+    "/users/delete",
+    [body("userId").notEmpty().withMessage("User ID is required"), validate],
+    adminController.deleteUser,
+);
+
+router.post("/statistics", adminController.getStatistics);
+router.post("/statistics/export", adminController.exportStatistics);
 
 export default router;

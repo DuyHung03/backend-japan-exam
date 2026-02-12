@@ -46,19 +46,41 @@ const examSchema = new mongoose.Schema(
                 },
                 questionGroups: [
                     {
+                        // group can be either standalone questions or a shared-content group
+                        groupType: {
+                            type: String,
+                            enum: ["standalone", "shared_content"],
+                            default: "standalone",
+                        },
+                        // when groupType = shared_content, reference the SharedContent document
+                        sharedContent: {
+                            type: mongoose.Schema.Types.ObjectId,
+                            ref: "SharedContent",
+                        },
+
+                        // legacy / standalone support: category + questions list
                         category: {
                             type: mongoose.Schema.Types.ObjectId,
                             ref: "QuestionCategory",
                         },
                         groupName: String,
                         instruction: String,
-                        questionIds: [
+                        // new structure: explicit questions with order and points
+                        questions: [
                             {
-                                type: mongoose.Schema.Types.ObjectId,
-                                ref: "Question",
+                                questionId: {
+                                    type: mongoose.Schema.Types.ObjectId,
+                                    ref: "Question",
+                                },
+                                order: Number,
+                                points: {
+                                    type: Number,
+                                    default: 1,
+                                },
                             },
                         ],
                         order: Number,
+                        totalPoints: Number,
                     },
                 ],
             },

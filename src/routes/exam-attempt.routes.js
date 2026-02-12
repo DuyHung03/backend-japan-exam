@@ -15,8 +15,9 @@ router.post(
 );
 
 router.post(
-    "/:attemptId/submit-answer",
+    "/submit-answer",
     [
+        body("attemptId").notEmpty().withMessage("Attempt ID is required"),
         body("questionId").notEmpty().withMessage("Question ID is required"),
         body("selectedAnswer").notEmpty().withMessage("Selected answer is required"),
         validate,
@@ -24,11 +25,24 @@ router.post(
     examAttemptController.submitAnswer,
 );
 
-router.post("/:attemptId/submit", examAttemptController.submitExam);
+router.post(
+    "/submit",
+    [body("attemptId").notEmpty().withMessage("Attempt ID is required"), validate],
+    examAttemptController.submitExam,
+);
 
-router.get("/my-attempts", examAttemptController.getMyAttempts);
-router.get("/:id", examAttemptController.getAttemptById);
+router.post("/my-attempts", examAttemptController.getMyAttempts);
 
-router.post("/:id/ai-analysis", examAttemptController.generateAIAnalysis);
+router.post(
+    "/get-by-id",
+    [body("attemptId").notEmpty().withMessage("Attempt ID is required"), validate],
+    examAttemptController.getAttemptById,
+);
+
+router.post(
+    "/ai-analysis",
+    [body("attemptId").notEmpty().withMessage("Attempt ID is required"), validate],
+    examAttemptController.generateAIAnalysis,
+);
 
 export default router;

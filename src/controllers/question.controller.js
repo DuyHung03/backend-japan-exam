@@ -31,7 +31,7 @@ export const getQuestions = asyncHandler(async (req, res) => {
         difficulty,
         status,
         search,
-    } = req.query;
+    } = req.body;
 
     const query = {};
 
@@ -69,7 +69,9 @@ export const getQuestions = asyncHandler(async (req, res) => {
 });
 
 export const getQuestionById = asyncHandler(async (req, res) => {
-    const question = await Question.findById(req.params.id)
+    const { questionId } = req.body;
+    
+    const question = await Question.findById(questionId)
         .populate("jlptLevel")
         .populate("category")
         .populate("grammarTopic")
@@ -94,9 +96,9 @@ export const getQuestionById = asyncHandler(async (req, res) => {
 
     ApiResponse.success(res, { question });
 });
-
-export const updateQuestion = asyncHandler(async (req, res) => {
-    let question = await Question.findById(req.params.id);
+const { questionId, ...updateData } = req.body;
+    
+    let question = await Question.findById(questionId);
 
     if (!question) {
         return ApiResponse.error(res, "Question not found", 404);
@@ -110,6 +112,8 @@ export const updateQuestion = asyncHandler(async (req, res) => {
         return ApiResponse.error(res, "Cannot update approved question", 400);
     }
 
+    question = await Question.findByIdAndUpdate(questionId, updateData
+
     question = await Question.findByIdAndUpdate(req.params.id, req.body, {
         new: true,
         runValidators: true,
@@ -117,9 +121,9 @@ export const updateQuestion = asyncHandler(async (req, res) => {
 
     ApiResponse.success(res, { question }, "Question updated successfully");
 });
-
-export const deleteQuestion = asyncHandler(async (req, res) => {
-    const question = await Question.findById(req.params.id);
+{ questionId } = req.body;
+    
+    const question = await Question.findById(questionId);
 
     if (!question) {
         return ApiResponse.error(res, "Question not found", 404);
@@ -139,7 +143,9 @@ export const deleteQuestion = asyncHandler(async (req, res) => {
 });
 
 export const approveQuestion = asyncHandler(async (req, res) => {
-    const question = await Question.findById(req.params.id);
+    const { questionId } = req.body;
+    
+    const question = await Question.findById(questionId);
 
     if (!question) {
         return ApiResponse.error(res, "Question not found", 404);
@@ -153,6 +159,10 @@ export const approveQuestion = asyncHandler(async (req, res) => {
     ApiResponse.success(res, { question }, "Question approved successfully");
 });
 
+export const rejectQuestion = asyncHandler(async (req, res) => {
+    const { questionId } = req.body;
+    
+    const question = await Question.findById(questionI
 export const rejectQuestion = asyncHandler(async (req, res) => {
     const question = await Question.findById(req.params.id);
 

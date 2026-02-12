@@ -4,7 +4,7 @@ import { asyncHandler } from "../utils/async-handler.js";
 import { NotFoundError } from "../utils/errors.js";
 
 export const getAllTopics = asyncHandler(async (req, res) => {
-    const { jlptLevel } = req.query;
+    const { jlptLevel } = req.body;
 
     const query = {};
     if (jlptLevel) query.jlptLevel = jlptLevel;
@@ -17,7 +17,9 @@ export const getAllTopics = asyncHandler(async (req, res) => {
 });
 
 export const getTopicById = asyncHandler(async (req, res) => {
-    const topic = await GrammarTopic.findById(req.params.id).populate("jlptLevel");
+    const { topicId } = req.body;
+
+    const topic = await GrammarTopic.findById(topicId).populate("jlptLevel");
 
     if (!topic) {
         return ApiResponse.error(res, "Topic not found", 404);
@@ -32,7 +34,9 @@ export const createTopic = asyncHandler(async (req, res) => {
 });
 
 export const updateTopic = asyncHandler(async (req, res) => {
-    const topic = await GrammarTopic.findByIdAndUpdate(req.params.id, req.body, {
+    const { topicId, ...updateData } = req.body;
+
+    const topic = await GrammarTopic.findByIdAndUpdate(topicId, updateData, {
         new: true,
         runValidators: true,
     });
@@ -45,7 +49,9 @@ export const updateTopic = asyncHandler(async (req, res) => {
 });
 
 export const deleteTopic = asyncHandler(async (req, res) => {
-    const topic = await GrammarTopic.findById(req.params.id);
+    const { topicId } = req.body;
+
+    const topic = await GrammarTopic.findById(topicId);
 
     if (!topic) {
         throw new NotFoundError("Topic");

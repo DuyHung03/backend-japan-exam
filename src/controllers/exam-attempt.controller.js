@@ -40,8 +40,7 @@ export const startExam = asyncHandler(async (req, res) => {
 });
 
 export const submitAnswer = asyncHandler(async (req, res) => {
-    const { attemptId } = req.params;
-    const { questionId, selectedAnswer, timeSpent } = req.body;
+    const { attemptId, questionId, selectedAnswer, timeSpent } = req.body;
 
     const attempt = await ExamAttempt.findById(attemptId);
 
@@ -89,7 +88,7 @@ export const submitAnswer = asyncHandler(async (req, res) => {
 });
 
 export const submitExam = asyncHandler(async (req, res) => {
-    const { attemptId } = req.params;
+    const { attemptId } = req.body;
 
     const attempt = await ExamAttempt.findById(attemptId)
         .populate("exam")
@@ -242,7 +241,7 @@ export const submitExam = asyncHandler(async (req, res) => {
 });
 
 export const getMyAttempts = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 20, examId, status } = req.query;
+    const { page = 1, limit = 20, examId, status } = req.body;
 
     const query = { user: req.user.id };
 
@@ -262,7 +261,9 @@ export const getMyAttempts = asyncHandler(async (req, res) => {
 });
 
 export const getAttemptById = asyncHandler(async (req, res) => {
-    const attempt = await ExamAttempt.findById(req.params.id)
+    const { attemptId } = req.body;
+    
+    const attempt = await ExamAttempt.findById(attemptId)
         .populate("exam")
         .populate("user", "fullName email")
         .populate("answers.question")
@@ -278,7 +279,9 @@ export const getAttemptById = asyncHandler(async (req, res) => {
 
     ApiResponse.success(res, { attempt });
 });
-
+{ attemptId } = req.body;
+    
+    const attempt = await ExamAttempt.findById(attemptI
 export const generateAIAnalysis = asyncHandler(async (req, res) => {
     const attempt = await ExamAttempt.findById(req.params.id).populate(
         "results.categoryScores.category",

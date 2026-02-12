@@ -9,7 +9,9 @@ export const getAllLevels = asyncHandler(async (req, res) => {
 });
 
 export const getLevelById = asyncHandler(async (req, res) => {
-    const level = await JlptLevel.findById(req.params.id);
+    const { levelId } = req.body;
+    
+    const level = await JlptLevel.findById(levelId);
 
     if (!level) {
         throw new NotFoundError("Level");
@@ -24,7 +26,9 @@ export const createLevel = asyncHandler(async (req, res) => {
 });
 
 export const updateLevel = asyncHandler(async (req, res) => {
-    const level = await JlptLevel.findByIdAndUpdate(req.params.id, req.body, {
+    const { levelId, ...updateData } = req.body;
+    
+    const level = await JlptLevel.findByIdAndUpdate(levelId, updateData, {
         new: true,
         runValidators: true,
     });
@@ -35,7 +39,9 @@ export const updateLevel = asyncHandler(async (req, res) => {
 
     ApiResponse.success(res, { level }, "Level updated successfully");
 });
-
+{ levelId } = req.body;
+    
+    const level = await JlptLevel.findById(levelI
 export const deleteLevel = asyncHandler(async (req, res) => {
     const level = await JlptLevel.findById(req.params.id);
 

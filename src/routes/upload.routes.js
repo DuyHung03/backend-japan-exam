@@ -1,7 +1,9 @@
 import express from "express";
+import { body } from "express-validator";
 import * as uploadController from "../controllers/upload.controller.js";
 import { authorize, protect } from "../middlewares/auth.middleware.js";
 import upload from "../middlewares/upload.middleware.js";
+import { validate } from "../middlewares/validator.middleware.js";
 
 const router = express.Router();
 
@@ -30,6 +32,11 @@ router.post(
 
 router.post("/avatar", upload.single("avatar"), uploadController.uploadAvatar);
 
-router.delete("/file", authorize("teacher", "admin"), uploadController.deleteFile);
+router.post(
+    "/delete-file",
+    authorize("teacher", "admin"),
+    [body("filePath").notEmpty().withMessage("File path is required"), validate],
+    uploadController.deleteFile,
+);
 
 export default router;

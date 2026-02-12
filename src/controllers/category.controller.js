@@ -9,7 +9,9 @@ export const getAllCategories = asyncHandler(async (req, res) => {
 });
 
 export const getCategoryById = asyncHandler(async (req, res) => {
-    const category = await QuestionCategory.findById(req.params.id);
+    const { categoryId } = req.body;
+
+    const category = await QuestionCategory.findById(categoryId);
 
     if (!category) {
         throw new NotFoundError("Category");
@@ -24,7 +26,9 @@ export const createCategory = asyncHandler(async (req, res) => {
 });
 
 export const updateCategory = asyncHandler(async (req, res) => {
-    const category = await QuestionCategory.findByIdAndUpdate(req.params.id, req.body, {
+    const { categoryId, ...updateData } = req.body;
+
+    const category = await QuestionCategory.findByIdAndUpdate(categoryId, updateData, {
         new: true,
         runValidators: true,
     });
@@ -37,7 +41,9 @@ export const updateCategory = asyncHandler(async (req, res) => {
 });
 
 export const deleteCategory = asyncHandler(async (req, res) => {
-    const category = await QuestionCategory.findById(req.params.id);
+    const { categoryId } = req.body;
+
+    const category = await QuestionCategory.findById(categoryId);
 
     if (!category) {
         throw new NotFoundError("Category");

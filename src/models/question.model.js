@@ -18,6 +18,11 @@ const questionSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "GrammarTopic",
         },
+        // Optional reference to shared content (passage / audio) when question belongs to a group
+        sharedContent: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "SharedContent",
+        },
         questionType: {
             type: String,
             enum: [
@@ -35,6 +40,11 @@ const questionSchema = new mongoose.Schema(
             ],
             required: true,
             index: true,
+        },
+        // Position in a shared-content group (optional)
+        orderInGroup: {
+            type: Number,
+            default: 1,
         },
         difficulty: {
             type: String,

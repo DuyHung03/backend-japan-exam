@@ -27,16 +27,16 @@ router.post(
     authController.login,
 );
 
-router.get("/me", protect, authController.getMe);
+router.post("/me", protect, authController.getMe);
 
-router.put(
+router.post(
     "/profile",
     protect,
     [body("fullName").optional().notEmpty().withMessage("Full name cannot be empty"), validate],
     authController.updateProfile,
 );
 
-router.put(
+router.post(
     "/change-password",
     protect,
     [

@@ -20,9 +20,24 @@ router.post(
     examTemplateController.createTemplate,
 );
 
-router.get("/", examTemplateController.getAllTemplates);
-router.get("/:id", examTemplateController.getTemplateById);
-router.put("/:id", examTemplateController.updateTemplate);
-router.delete("/:id", examTemplateController.deleteTemplate);
+router.post("/list", examTemplateController.getAllTemplates);
+
+router.post(
+    "/get-by-id",
+    [body("templateId").notEmpty().withMessage("Template ID is required"), validate],
+    examTemplateController.getTemplateById,
+);
+
+router.post(
+    "/update",
+    [body("templateId").notEmpty().withMessage("Template ID is required"), validate],
+    examTemplateController.updateTemplate,
+);
+
+router.post(
+    "/delete",
+    [body("templateId").notEmpty().withMessage("Template ID is required"), validate],
+    examTemplateController.deleteTemplate,
+);
 
 export default router;

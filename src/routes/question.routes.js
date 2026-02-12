@@ -9,7 +9,7 @@ const router = express.Router();
 router.use(protect);
 
 router.post(
-    "/",
+    "/create",
     authorize("teacher", "admin"),
     [
         body("jlptLevel").notEmpty().withMessage("JLPT level is required"),
@@ -23,15 +23,40 @@ router.post(
     questionController.createQuestion,
 );
 
-router.get("/", questionController.getQuestions);
-router.get("/:id", questionController.getQuestionById);
+router.post("/list", questionController.getQuestions);
 
-router.put("/:id", authorize("teacher", "admin"), questionController.updateQuestion);
+router.post(
+    "/get-by-id",
+    [body("questionId").notEmpty().withMessage("Question ID is required"), validate],
+    questionController.getQuestionById,
+);
 
-router.delete("/:id", authorize("teacher", "admin"), questionController.deleteQuestion);
+router.post(
+    "/update",
+    authorize("teacher", "admin"),
+    [body("questionId").notEmpty().withMessage("Question ID is required"), validate],
+    questionController.updateQuestion,
+);
 
-router.patch("/:id/approve", authorize("admin"), questionController.approveQuestion);
+router.post(
+    "/delete",
+    authorize("teacher", "admin"),
+    [body("questionId").notEmpty().withMessage("Question ID is required"), validate],
+    questionController.deleteQuestion,
+);
 
-router.patch("/:id/reject", authorize("admin"), questionController.rejectQuestion);
+router.post(
+    "/approve",
+    authorize("admin"),
+    [body("questionId").notEmpty().withMessage("Question ID is required"), validate],
+    questionController.approveQuestion,
+);
+
+router.post(
+    "/reject",
+    authorize("admin"),
+    [body("questionId").notEmpty().withMessage("Question ID is required"), validate],
+    questionController.rejectQuestion,
+);
 
 export default router;

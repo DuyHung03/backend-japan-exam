@@ -7,7 +7,7 @@ import { asyncHandler } from "../utils/async-handler.js";
 import { NotFoundError, ValidationError } from "../utils/errors.js";
 
 export const getAllUsers = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 20, role, status, search } = req.query;
+    const { page = 1, limit = 20, role, status, search } = req.body;
 
     const query = {};
 
@@ -31,10 +31,10 @@ export const getAllUsers = asyncHandler(async (req, res) => {
 });
 
 export const updateUserRole = asyncHandler(async (req, res) => {
-    const { role } = req.body;
+    const { userId, role } = req.body;
 
     const user = await User.findByIdAndUpdate(
-        req.params.id,
+        userId,
         { role },
         { new: true, runValidators: true },
     ).select("-password");
@@ -47,7 +47,9 @@ export const updateUserRole = asyncHandler(async (req, res) => {
 });
 
 export const toggleUserStatus = asyncHandler(async (req, res) => {
-    const user = await User.findById(req.params.id);
+    const { userId } = req.body;
+    
+    const user = await User.findById(userId);
 
     if (!user) {
         throw new NotFoundError("User");
@@ -62,7 +64,9 @@ export const toggleUserStatus = asyncHandler(async (req, res) => {
         `User ${user.status === "active" ? "unlocked" : "locked"} successfully`,
     );
 });
-
+{ userId } = req.body;
+    
+    const user = await User.findById(userI
 export const deleteUser = asyncHandler(async (req, res) => {
     const user = await User.findById(req.params.id);
 

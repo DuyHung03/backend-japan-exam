@@ -3,11 +3,11 @@ import ApiResponse from "../utils/api-response.js";
 import { asyncHandler } from "../utils/async-handler.js";
 
 export const getAllTemplates = asyncHandler(async (req, res) => {
-    const { jlptLevel, isActive } = req.query;
+    const { jlptLevel, isActive } = req.body;
 
     const query = {};
     if (jlptLevel) query.jlptLevel = jlptLevel;
-    if (isActive !== undefined) query.isActive = isActive === "true";
+    if (isActive !== undefined) query.isActive = isActive;
 
     const templates = await ExamTemplate.find(query)
         .populate("jlptLevel", "level name")
@@ -19,7 +19,9 @@ export const getAllTemplates = asyncHandler(async (req, res) => {
 });
 
 export const getTemplateById = asyncHandler(async (req, res) => {
-    const template = await ExamTemplate.findById(req.params.id)
+    const { templateId } = req.body;
+
+    const template = await ExamTemplate.findById(templateId)
         .populate("jlptLevel")
         .populate("autoGenerationRules.category")
         .populate("autoGenerationRules.grammarTopics")
@@ -42,7 +44,9 @@ export const createTemplate = asyncHandler(async (req, res) => {
 });
 
 export const updateTemplate = asyncHandler(async (req, res) => {
-    const template = await ExamTemplate.findByIdAndUpdate(req.params.id, req.body, {
+    const { templateId, ...updateData } = req.body;
+
+    const template = await ExamTemplate.findByIdAndUpdate(templateId, updateData, {
         new: true,
         runValidators: true,
     });
@@ -55,7 +59,9 @@ export const updateTemplate = asyncHandler(async (req, res) => {
 });
 
 export const deleteTemplate = asyncHandler(async (req, res) => {
-    const template = await ExamTemplate.findById(req.params.id);
+    const { templateId } = req.body;
+
+    const template = await ExamTemplate.findById(templateId);
 
     if (!template) {
         return ApiResponse.error(res, "Template not found", 404);

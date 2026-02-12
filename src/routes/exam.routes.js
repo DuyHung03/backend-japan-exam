@@ -9,7 +9,7 @@ const router = express.Router();
 router.use(protect);
 
 router.post(
-    "/",
+    "/create",
     authorize("teacher", "admin"),
     [
         body("title").notEmpty().withMessage("Title is required"),
@@ -27,13 +27,33 @@ router.post(
     examController.createExamFromTemplate,
 );
 
-router.get("/", examController.getExams);
-router.get("/:id", examController.getExamById);
+router.post("/list", examController.getExams);
 
-router.put("/:id", authorize("teacher", "admin"), examController.updateExam);
+router.post(
+    "/get-by-id",
+    [body("examId").notEmpty().withMessage("Exam ID is required"), validate],
+    examController.getExamById,
+);
 
-router.delete("/:id", authorize("teacher", "admin"), examController.deleteExam);
+router.post(
+    "/update",
+    authorize("teacher", "admin"),
+    [body("examId").notEmpty().withMessage("Exam ID is required"), validate],
+    examController.updateExam,
+);
 
-router.patch("/:id/publish", authorize("teacher", "admin"), examController.publishExam);
+router.post(
+    "/delete",
+    authorize("teacher", "admin"),
+    [body("examId").notEmpty().withMessage("Exam ID is required"), validate],
+    examController.deleteExam,
+);
+
+router.post(
+    "/publish",
+    authorize("teacher", "admin"),
+    [body("examId").notEmpty().withMessage("Exam ID is required"), validate],
+    examController.publishExam,
+);
 
 export default router;

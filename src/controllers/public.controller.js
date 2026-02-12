@@ -19,10 +19,17 @@ export const getJlptLevels = asyncHandler(async (req, res) => {
 });
 
 export const getJlptLevelInfo = asyncHandler(async (req, res) => {
-    const level = await JlptLevel.findOne({
-        level: req.params.level.toUpperCase(),
-        isActive: true,
-    });
+    const { levelId, levelCode } = req.body;
+
+    let level;
+    if (levelId) {
+        level = await JlptLevel.findById(levelId);
+    } else if (levelCode) {
+        level = await JlptLevel.findOne({
+            level: levelCode.toUpperCase(),
+            isActive: true,
+        });
+    }
 
     if (!level) {
         return ApiResponse.error(res, "Level not found", 404);
@@ -46,16 +53,14 @@ export const getDemoExams = asyncHandler(async (req, res) => {
 });
 
 export const getDemoExamDetail = asyncHandler(async (req, res) => {
-    const exam = await Exam.findById(req.params.id)
-        .populate("jlptLevel")
-        .populate({
-            path: "sections.questionGroups.category",
-            select: "name code",
-        })
-        .populate({
-            path: "sections.questionGroups.questionIds",
-            select: "content options questionType difficulty",
-        });
+    const { examId, examCode } = req.body;
+
+    let exam;
+    if (examId) {
+        exam = await Exam.findById(examId);
+    } else if (examCode) {
+        exam = await Exam.findOne({ examCode });
+    }
 
     if (!exam) {
         return ApiResponse.error(res, "Exam not found", 404);
@@ -65,7 +70,16 @@ export const getDemoExamDetail = asyncHandler(async (req, res) => {
         return ApiResponse.error(res, "This is not a demo exam", 403);
     }
 
-    await Exam.findByIdAndUpdate(req.params.id, { $inc: { viewCount: 1 } });
+    exam = await Exam.findByIdAndUpdate(exam._id, { $inc: { viewCount: 1 } }, { new: true })
+        .populate("jlptLevel")
+        .populate({
+            path: "sections.questionGroups.category",
+            select: "name code",
+        })
+        .populate({
+            path: "sections.questionGroups.questionIds",
+            select: "content options questionType difficulty",
+        });
 
     ApiResponse.success(res, { exam });
 });

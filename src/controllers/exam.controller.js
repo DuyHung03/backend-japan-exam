@@ -145,7 +145,7 @@ export const createExamFromTemplate = asyncHandler(async (req, res) => {
 });
 
 export const getExams = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 20, jlptLevel, status, type, search } = req.query;
+    const { page = 1, limit = 20, jlptLevel, status, type, search } = req.body;
 
     const query = {};
 
@@ -177,7 +177,9 @@ export const getExams = asyncHandler(async (req, res) => {
 });
 
 export const getExamById = asyncHandler(async (req, res) => {
-    const exam = await Exam.findById(req.params.id)
+    const { examId } = req.body;
+    
+    const exam = await Exam.findById(examId)
         .populate("jlptLevel")
         .populate("createdBy", "fullName email")
         .populate({
@@ -197,13 +199,13 @@ export const getExamById = asyncHandler(async (req, res) => {
         return ApiResponse.error(res, "Not authorized to view this exam", 403);
     }
 
-    await Exam.findByIdAndUpdate(req.params.id, { $inc: { viewCount: 1 } });
+    await Exam.findByIdAndUpdate(examId, { $inc: { viewCount: 1 } });
 
     ApiResponse.success(res, { exam });
 });
-
-export const updateExam = asyncHandler(async (req, res) => {
-    let exam = await Exam.findById(req.params.id);
+const { examId, ...updateData } = req.body;
+    
+    let exam = await Exam.findById(examId);
 
     if (!exam) {
         return ApiResponse.error(res, "Exam not found", 404);
@@ -213,6 +215,8 @@ export const updateExam = asyncHandler(async (req, res) => {
         return ApiResponse.error(res, "Not authorized to update this exam", 403);
     }
 
+    exam = await Exam.findByIdAndUpdate(examId, updateData
+
     exam = await Exam.findByIdAndUpdate(req.params.id, req.body, {
         new: true,
         runValidators: true,
@@ -220,7 +224,9 @@ export const updateExam = asyncHandler(async (req, res) => {
 
     ApiResponse.success(res, { exam }, "Exam updated successfully");
 });
-
+{ examId } = req.body;
+    
+    const exam = await Exam.findById(examI
 export const deleteExam = asyncHandler(async (req, res) => {
     const exam = await Exam.findById(req.params.id);
 
@@ -238,7 +244,9 @@ export const deleteExam = asyncHandler(async (req, res) => {
 
     await exam.deleteOne();
 
-    ApiResponse.success(res, null, "Exam deleted successfully");
+    ApiRes{ examId } = req.body;
+    
+    const exam = await Exam.findById(examIsuccessfully");
 });
 
 export const publishExam = asyncHandler(async (req, res) => {
