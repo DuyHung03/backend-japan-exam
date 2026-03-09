@@ -1,5 +1,11 @@
 import mongoose from "mongoose";
 
+/**
+ * ExamAttempt - Lịch sử làm bài thi
+ *
+ * Lưu trữ câu trả lời và kết quả của user cho từng bài thi.
+ * answers sử dụng questionId (là _id của câu hỏi embedded trong Exam).
+ */
 const examAttemptSchema = new mongoose.Schema(
     {
         user: {
@@ -20,6 +26,8 @@ const examAttemptSchema = new mongoose.Schema(
             default: "in_progress",
             index: true,
         },
+
+        // ===== Thời gian =====
         startTime: {
             type: Date,
             required: true,
@@ -27,19 +35,23 @@ const examAttemptSchema = new mongoose.Schema(
         },
         endTime: Date,
         submitTime: Date,
-        duration: Number,
+        duration: Number, // giây
+
+        // ===== Câu trả lời =====
         answers: [
             {
-                question: {
-                    type: mongoose.Schema.Types.ObjectId,
-                    ref: "Question",
+                questionId: {
+                    type: mongoose.Schema.Types.ObjectId, // _id của embedded question trong exam
+                    required: true,
                 },
+                sectionType: String, // vocabulary, grammar, reading, listening
                 selectedAnswer: String,
                 isCorrect: Boolean,
-                timeSpent: Number,
-                order: Number,
+                timeSpent: Number, // giây
             },
         ],
+
+        // ===== Kết quả =====
         results: {
             totalQuestions: Number,
             correctAnswers: Number,
@@ -48,22 +60,12 @@ const examAttemptSchema = new mongoose.Schema(
             sectionScores: [
                 {
                     sectionType: String,
+                    sectionName: String,
                     correctAnswers: Number,
                     totalQuestions: Number,
                     score: Number,
                     maxScore: Number,
                     passed: Boolean,
-                },
-            ],
-            categoryScores: [
-                {
-                    category: {
-                        type: mongoose.Schema.Types.ObjectId,
-                        ref: "QuestionCategory",
-                    },
-                    correctAnswers: Number,
-                    totalQuestions: Number,
-                    accuracy: Number,
                 },
             ],
             totalScore: Number,
@@ -74,22 +76,6 @@ const examAttemptSchema = new mongoose.Schema(
                 type: String,
                 enum: ["A", "B", "C", "D", "F"],
             },
-        },
-        aiAnalysis: {
-            strengths: [String],
-            weaknesses: [String],
-            recommendations: [String],
-            skillLevels: [
-                {
-                    skill: String,
-                    level: {
-                        type: String,
-                        enum: ["weak", "average", "good", "excellent"],
-                    },
-                    score: Number,
-                },
-            ],
-            generatedAt: Date,
         },
     },
     {

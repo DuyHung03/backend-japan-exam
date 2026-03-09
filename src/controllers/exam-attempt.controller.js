@@ -1,9 +1,11 @@
 import ExamAttempt from "../models/exam-attempt.model.js";
 import Exam from "../models/exam.model.js";
-import Question from "../models/question.model.js";
 import ApiResponse from "../utils/api-response.js";
 import { asyncHandler } from "../utils/async-handler.js";
 
+/**
+ * Bắt đầu làm bài thi
+ */
 export const startExam = asyncHandler(async (req, res) => {
     const { examId } = req.body;
 
@@ -17,6 +19,7 @@ export const startExam = asyncHandler(async (req, res) => {
         return ApiResponse.error(res, "Exam is not available", 400);
     }
 
+    // Kiểm tra đã có bài thi đang làm dở chưa
     const existingAttempt = await ExamAttempt.findOne({
         user: req.user.id,
         exam: examId,
@@ -24,7 +27,11 @@ export const startExam = asyncHandler(async (req, res) => {
     });
 
     if (existingAttempt) {
-        return ApiResponse.error(res, "You already have an exam in progress", 400);
+        return ApiResponse.success(
+            res,
+            { attempt: existingAttempt },
+            "You have an exam in progress",
+        );
     }
 
     const attempt = await ExamAttempt.create({
@@ -36,11 +43,15 @@ export const startExam = asyncHandler(async (req, res) => {
 
     await Exam.findByIdAndUpdate(examId, { $inc: { attemptCount: 1 } });
 
-    ApiResponse.success(res, { attempt }, "Exam started successfully", 201);
+    ApiResponse.created(res, { attempt }, "Exam started successfully");
 });
 
+/**
+ * Nộp câu trả lời (từng câu hoặc nhiều câu)
+ * questionId: _id của embedded question trong exam
+ */
 export const submitAnswer = asyncHandler(async (req, res) => {
-    const { attemptId, questionId, selectedAnswer, timeSpent } = req.body;
+    const { attemptId, questionId, sectionType, selectedAnswer, timeSpent } = req.body;
 
     const attempt = await ExamAttempt.findById(attemptId);
 
@@ -56,43 +67,56 @@ export const submitAnswer = asyncHandler(async (req, res) => {
         return ApiResponse.error(res, "Cannot submit answer to completed exam", 400);
     }
 
-    const question = await Question.findById(questionId);
+    // Tìm câu hỏi trong exam để check đáp án
+    const exam = await Exam.findById(attempt.exam);
+    let correctAnswer = null;
 
-    if (!question) {
-        return ApiResponse.error(res, "Question not found", 404);
+    for (const section of exam.sections) {
+        for (const block of section.blocks) {
+            const question = block.questions.find((q) => q._id.toString() === questionId);
+            if (question) {
+                correctAnswer = question.correctAnswer;
+                break;
+            }
+        }
+        if (correctAnswer !== null) break;
     }
 
-    const existingAnswerIndex = attempt.answers.findIndex(
-        (a) => a.question.toString() === questionId,
-    );
+    if (correctAnswer === null) {
+        return ApiResponse.error(res, "Question not found in exam", 404);
+    }
 
-    const isCorrect = selectedAnswer === question.correctAnswer;
+    const isCorrect = selectedAnswer === correctAnswer;
 
-    if (existingAnswerIndex !== -1) {
-        attempt.answers[existingAnswerIndex].selectedAnswer = selectedAnswer;
-        attempt.answers[existingAnswerIndex].isCorrect = isCorrect;
-        attempt.answers[existingAnswerIndex].timeSpent = timeSpent;
+    // Cập nhật hoặc thêm answer
+    const existingIndex = attempt.answers.findIndex((a) => a.questionId.toString() === questionId);
+
+    if (existingIndex !== -1) {
+        attempt.answers[existingIndex].selectedAnswer = selectedAnswer;
+        attempt.answers[existingIndex].isCorrect = isCorrect;
+        attempt.answers[existingIndex].timeSpent = timeSpent;
     } else {
         attempt.answers.push({
-            question: questionId,
+            questionId,
+            sectionType: sectionType || "",
             selectedAnswer,
             isCorrect,
             timeSpent,
-            order: attempt.answers.length + 1,
         });
     }
 
     await attempt.save();
 
-    ApiResponse.success(res, { attempt }, "Answer submitted");
+    ApiResponse.success(res, { isCorrect, answer: attempt.answers.at(-1) }, "Answer submitted");
 });
 
+/**
+ * Nộp bài thi - tính điểm tất cả các phần
+ */
 export const submitExam = asyncHandler(async (req, res) => {
     const { attemptId } = req.body;
 
-    const attempt = await ExamAttempt.findById(attemptId)
-        .populate("exam")
-        .populate("answers.question");
+    const attempt = await ExamAttempt.findById(attemptId);
 
     if (!attempt) {
         return ApiResponse.error(res, "Attempt not found", 404);
@@ -106,83 +130,57 @@ export const submitExam = asyncHandler(async (req, res) => {
         return ApiResponse.error(res, "Exam already submitted", 400);
     }
 
+    const exam = await Exam.findById(attempt.exam);
+
     const endTime = new Date();
     const duration = Math.floor((endTime - attempt.startTime) / 1000);
 
-    let correctAnswers = 0;
-    let wrongAnswers = 0;
-    let skippedAnswers = 0;
+    let totalCorrect = 0;
+    let totalWrong = 0;
+    let totalSkipped = 0;
+    const sectionScores = [];
 
-    const categoryScoresMap = {};
-    const sectionScoresMap = {};
+    // Tính điểm theo từng phần
+    for (const section of exam.sections) {
+        let sectionCorrect = 0;
+        let sectionTotal = 0;
+        let sectionMaxScore = section.points;
 
-    for (const section of attempt.exam.sections) {
-        sectionScoresMap[section.sectionType] = {
-            sectionType: section.sectionType,
-            correctAnswers: 0,
-            totalQuestions: 0,
-            score: 0,
-            maxScore: section.totalScore,
-            passed: false,
-        };
-
-        for (const group of section.questionGroups) {
-            for (const questionId of group.questionIds) {
-                sectionScoresMap[section.sectionType].totalQuestions++;
-
+        for (const block of section.blocks) {
+            for (const question of block.questions) {
+                sectionTotal++;
                 const answer = attempt.answers.find(
-                    (a) => a.question._id.toString() === questionId.toString(),
+                    (a) => a.questionId.toString() === question._id.toString(),
                 );
 
                 if (!answer || !answer.selectedAnswer) {
-                    skippedAnswers++;
+                    totalSkipped++;
                 } else if (answer.isCorrect) {
-                    correctAnswers++;
-                    sectionScoresMap[section.sectionType].correctAnswers++;
+                    totalCorrect++;
+                    sectionCorrect++;
                 } else {
-                    wrongAnswers++;
-                }
-
-                const question = await Question.findById(questionId).populate("category");
-
-                if (question && question.category) {
-                    const categoryId = question.category._id.toString();
-
-                    if (!categoryScoresMap[categoryId]) {
-                        categoryScoresMap[categoryId] = {
-                            category: categoryId,
-                            correctAnswers: 0,
-                            totalQuestions: 0,
-                            accuracy: 0,
-                        };
-                    }
-
-                    categoryScoresMap[categoryId].totalQuestions++;
-                    if (answer && answer.isCorrect) {
-                        categoryScoresMap[categoryId].correctAnswers++;
-                    }
+                    totalWrong++;
                 }
             }
         }
 
-        const sectionScore = sectionScoresMap[section.sectionType];
-        sectionScore.score = Math.round(
-            (sectionScore.correctAnswers / sectionScore.totalQuestions) * sectionScore.maxScore,
-        );
-        sectionScore.passed = sectionScore.score >= (section.passingScore || 19);
+        const sectionScore =
+            sectionTotal > 0 ? Math.round((sectionCorrect / sectionTotal) * sectionMaxScore) : 0;
+
+        sectionScores.push({
+            sectionType: section.sectionType,
+            sectionName: section.sectionName,
+            correctAnswers: sectionCorrect,
+            totalQuestions: sectionTotal,
+            score: sectionScore,
+            maxScore: sectionMaxScore,
+            passed: sectionScore >= (section.passingScore || 0),
+        });
     }
 
-    for (const categoryId in categoryScoresMap) {
-        const cat = categoryScoresMap[categoryId];
-        cat.accuracy = Math.round((cat.correctAnswers / cat.totalQuestions) * 100);
-    }
-
-    const totalScore = Object.values(sectionScoresMap).reduce((sum, s) => sum + s.score, 0);
-
-    const percentage = Math.round((totalScore / attempt.exam.totalScore) * 100);
-    const passed =
-        totalScore >= attempt.exam.passingScore &&
-        Object.values(sectionScoresMap).every((s) => s.passed);
+    const totalScore = sectionScores.reduce((sum, s) => sum + s.score, 0);
+    const percentage = exam.totalPoints > 0 ? Math.round((totalScore / exam.totalPoints) * 100) : 0;
+    const passed = totalScore >= exam.passingScore && sectionScores.every((s) => s.passed);
 
     let rank;
     if (percentage >= 90) rank = "A";
@@ -195,16 +193,14 @@ export const submitExam = asyncHandler(async (req, res) => {
     attempt.endTime = endTime;
     attempt.submitTime = endTime;
     attempt.duration = duration;
-
     attempt.results = {
-        totalQuestions: attempt.answers.length,
-        correctAnswers,
-        wrongAnswers,
-        skippedAnswers,
-        sectionScores: Object.values(sectionScoresMap),
-        categoryScores: Object.values(categoryScoresMap),
+        totalQuestions: totalCorrect + totalWrong + totalSkipped,
+        correctAnswers: totalCorrect,
+        wrongAnswers: totalWrong,
+        skippedAnswers: totalSkipped,
+        sectionScores,
         totalScore,
-        maxScore: attempt.exam.totalScore,
+        maxScore: exam.totalPoints,
         percentage,
         passed,
         rank,
@@ -212,62 +208,50 @@ export const submitExam = asyncHandler(async (req, res) => {
 
     await attempt.save();
 
-    for (const answer of attempt.answers) {
-        if (answer.question) {
-            const questionDoc = await Question.findById(answer.question._id);
-            if (questionDoc) {
-                const currentCorrectRate = questionDoc.correctRate || 0;
-                const usageCount = questionDoc.usageCount || 1;
-
-                const newCorrectRate =
-                    currentCorrectRate === 0
-                        ? answer.isCorrect
-                            ? 100
-                            : 0
-                        : Math.round(
-                              (currentCorrectRate * (usageCount - 1) +
-                                  (answer.isCorrect ? 100 : 0)) /
-                                  usageCount,
-                          );
-
-                await Question.findByIdAndUpdate(answer.question._id, {
-                    correctRate: newCorrectRate,
-                });
-            }
-        }
-    }
-
     ApiResponse.success(res, { attempt }, "Exam submitted successfully");
 });
 
+/**
+ * Lịch sử làm bài của user
+ */
 export const getMyAttempts = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 20, examId, status } = req.body;
+    const { page = 1, limit = 20, examId, status, search } = req.body;
 
     const query = { user: req.user.id };
 
     if (examId) query.exam = examId;
     if (status) query.status = status;
 
+    if (search) {
+        const exams = await Exam.find({
+            $or: [
+                { title: { $regex: search, $options: "i" } },
+                { examCode: { $regex: search, $options: "i" } },
+            ],
+        }).select("_id");
+        query.exam = { $in: exams.map((e) => e._id) };
+    }
+
     const total = await ExamAttempt.countDocuments(query);
     const attempts = await ExamAttempt.find(query)
-        .populate("exam", "title examCode jlptLevel totalScore")
-        .populate("exam.jlptLevel", "level name")
-        .select("-answers -aiAnalysis")
+        .populate("exam", "title examCode level totalPoints duration")
+        .select("-answers")
         .sort({ startTime: -1 })
         .skip((page - 1) * limit)
         .limit(parseInt(limit));
 
-    ApiResponse.paginate(res, { attempts }, page, limit, total);
+    ApiResponse.paginate(res, attempts, page, limit, total, "Attempts retrieved successfully");
 });
 
+/**
+ * Chi tiết lần làm bài
+ */
 export const getAttemptById = asyncHandler(async (req, res) => {
     const { attemptId } = req.body;
-    
+
     const attempt = await ExamAttempt.findById(attemptId)
         .populate("exam")
-        .populate("user", "fullName email")
-        .populate("answers.question")
-        .populate("results.categoryScores.category", "name code");
+        .populate("user", "fullName email");
 
     if (!attempt) {
         return ApiResponse.error(res, "Attempt not found", 404);
@@ -278,74 +262,4 @@ export const getAttemptById = asyncHandler(async (req, res) => {
     }
 
     ApiResponse.success(res, { attempt });
-});
-{ attemptId } = req.body;
-    
-    const attempt = await ExamAttempt.findById(attemptI
-export const generateAIAnalysis = asyncHandler(async (req, res) => {
-    const attempt = await ExamAttempt.findById(req.params.id).populate(
-        "results.categoryScores.category",
-    );
-
-    if (!attempt) {
-        return ApiResponse.error(res, "Attempt not found", 404);
-    }
-
-    if (attempt.user.toString() !== req.user.id) {
-        return ApiResponse.error(res, "Not authorized", 403);
-    }
-
-    if (attempt.status !== "submitted") {
-        return ApiResponse.error(res, "Exam not submitted yet", 400);
-    }
-
-    const strengths = [];
-    const weaknesses = [];
-    const recommendations = [];
-    const skillLevels = [];
-
-    for (const categoryScore of attempt.results.categoryScores) {
-        const accuracy = categoryScore.accuracy;
-        const categoryName = categoryScore.category?.name || "Unknown";
-
-        let level;
-        if (accuracy >= 80) level = "excellent";
-        else if (accuracy >= 65) level = "good";
-        else if (accuracy >= 50) level = "average";
-        else level = "weak";
-
-        skillLevels.push({
-            skill: categoryName,
-            level,
-            score: accuracy,
-        });
-
-        if (accuracy >= 80) {
-            strengths.push(`Excellent performance in ${categoryName} (${accuracy}%)`);
-        } else if (accuracy < 50) {
-            weaknesses.push(`Needs improvement in ${categoryName} (${accuracy}%)`);
-            recommendations.push(`Focus more on ${categoryName} exercises and practice`);
-        }
-    }
-
-    if (attempt.results.passed) {
-        recommendations.push("Continue practicing to maintain your level");
-        recommendations.push("Consider moving to the next JLPT level");
-    } else {
-        recommendations.push("Review the questions you got wrong");
-        recommendations.push("Practice more mock exams at this level");
-        recommendations.push("Focus on sections where you scored below passing marks");
-    }
-
-    attempt.aiAnalysis = {
-        strengths,
-        weaknesses,
-        recommendations,
-        skillLevels,
-        generatedAt: new Date(),
-    };
-
-    await attempt.save();
-
-    ApiResponse.success(res, { analysis: attempt.aiAnalysis }, "AI analysis generated");
 });

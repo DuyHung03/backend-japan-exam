@@ -8,29 +8,26 @@ const router = express.Router();
 
 router.use(protect);
 
+// Thêm câu hỏi vào block đã tồn tại
 router.post(
-    "/create",
+    "/add-to-block",
     authorize("teacher", "admin"),
     [
-        body("jlptLevel").notEmpty().withMessage("JLPT level is required"),
-        body("category").notEmpty().withMessage("Category is required"),
-        body("questionType").notEmpty().withMessage("Question type is required"),
-        body("content.text").notEmpty().withMessage("Question text is required"),
-        body("options").isArray({ min: 2 }).withMessage("At least 2 options are required"),
-        body("correctAnswer").notEmpty().withMessage("Correct answer is required"),
+        body("blockId").notEmpty().withMessage("Block ID is required"),
+        body("questions").isArray({ min: 1 }).withMessage("questions must be a non-empty array"),
         validate,
     ],
-    questionController.createQuestion,
+    questionController.addQuestionsToBlock,
 );
 
-router.post("/list", questionController.getQuestions);
-
+// Chi tiết câu hỏi
 router.post(
     "/get-by-id",
     [body("questionId").notEmpty().withMessage("Question ID is required"), validate],
     questionController.getQuestionById,
 );
 
+// Cập nhật câu hỏi
 router.post(
     "/update",
     authorize("teacher", "admin"),
@@ -38,25 +35,12 @@ router.post(
     questionController.updateQuestion,
 );
 
+// Xóa câu hỏi
 router.post(
     "/delete",
     authorize("teacher", "admin"),
     [body("questionId").notEmpty().withMessage("Question ID is required"), validate],
     questionController.deleteQuestion,
-);
-
-router.post(
-    "/approve",
-    authorize("admin"),
-    [body("questionId").notEmpty().withMessage("Question ID is required"), validate],
-    questionController.approveQuestion,
-);
-
-router.post(
-    "/reject",
-    authorize("admin"),
-    [body("questionId").notEmpty().withMessage("Question ID is required"), validate],
-    questionController.rejectQuestion,
 );
 
 export default router;

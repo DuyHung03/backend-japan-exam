@@ -1,34 +1,143 @@
-import slugify from "slugify";
-import ExamTemplate from "../models/exam-template.model.js";
 import Exam from "../models/exam.model.js";
+import QuestionBlock from "../models/question-block.model.js";
 import Question from "../models/question.model.js";
 import ApiResponse from "../utils/api-response.js";
 import { asyncHandler } from "../utils/async-handler.js";
-import { NotFoundError } from "../utils/errors.js";
 
+/**
+ * Tạo bài thi mới
+ *
+ * Body cần có:
+ * - title, level, type, duration, description, instructions
+ * - sections: array gồm các phần thi, mỗi phần có:
+ *   - sectionType, sectionName, duration, order, passingScore
+ *   - blocks: array gồm các block câu hỏi
+ *     - blockId: ObjectId (copy cả QuestionBlock từ bank)
+ *     - HOẶC questionIds: [ObjectId] (pick câu hỏi riêng lẻ từ bank)
+ *     - title?, instruction?, questionType?, order?, pointsPerQuestion?
+ *
+ * Câu hỏi được COPY từ bank vào exam (embedded, độc lập).
+ */
 export const createExam = asyncHandler(async (req, res) => {
-    const { title, jlptLevel, sections, ...rest } = req.body;
+    const { title, level, sections, ...rest } = req.body;
 
-    const examCode = `${jlptLevel.toUpperCase()}_${slugify(title, { upper: true })}_${Date.now()}`;
+    const examCode = `${level}_${Date.now()}`;
 
     let totalQuestions = 0;
-    for (const section of sections) {
-        for (const group of section.questionGroups) {
-            totalQuestions += group.questionIds.length;
+    let totalPoints = 0;
+    const processedSections = [];
 
-            await Question.updateMany(
-                { _id: { $in: group.questionIds } },
-                { $inc: { usageCount: 1 } },
-            );
+    for (const section of sections) {
+        let sectionQuestionCount = 0;
+        let sectionPoints = 0;
+        const processedBlocks = [];
+
+        if (Array.isArray(section.blocks) && section.blocks.length > 0) {
+            for (const blockInput of section.blocks) {
+                const processedBlock = {
+                    title: blockInput.title,
+                    instruction: blockInput.instruction,
+                    questionType: blockInput.questionType,
+                    order: blockInput.order || 0,
+                    context: null,
+                    questions: [],
+                };
+
+                if (blockInput.blockId) {
+                    // Copy cả block từ bank
+                    const block = await QuestionBlock.findById(blockInput.blockId);
+                    if (!block) {
+                        return ApiResponse.error(
+                            res,
+                            `Question block ${blockInput.blockId} not found`,
+                            404,
+                        );
+                    }
+
+                    const blockQuestions = await Question.find({
+                        block: blockInput.blockId,
+                    }).sort({ orderInBlock: 1 });
+
+                    processedBlock.sourceBlockId = block._id;
+                    processedBlock.title = processedBlock.title || block.title;
+                    processedBlock.context = block.context || null;
+                    processedBlock.instruction = processedBlock.instruction || block.instructions;
+
+                    processedBlock.questions = blockQuestions.map((q, idx) => ({
+                        sourceQuestionId: q._id,
+                        questionText: q.questionText,
+                        options: q.options,
+                        correctAnswer: q.correctAnswer,
+                        explanation: q.explanation,
+                        translationVi: q.translationVi,
+                        media: q.media,
+                        points: blockInput.pointsPerQuestion || 1,
+                        order: idx + 1,
+                    }));
+
+                    sectionQuestionCount += blockQuestions.length;
+                    sectionPoints += blockQuestions.length * (blockInput.pointsPerQuestion || 1);
+
+                    await Question.updateMany(
+                        { _id: { $in: blockQuestions.map((q) => q._id) } },
+                        { $inc: { usageCount: 1 } },
+                    );
+                } else if (
+                    Array.isArray(blockInput.questionIds) &&
+                    blockInput.questionIds.length > 0
+                ) {
+                    // Pick câu hỏi riêng lẻ từ bank
+                    const questions = await Question.find({
+                        _id: { $in: blockInput.questionIds },
+                    });
+
+                    processedBlock.questions = questions.map((q, idx) => ({
+                        sourceQuestionId: q._id,
+                        questionText: q.questionText,
+                        options: q.options,
+                        correctAnswer: q.correctAnswer,
+                        explanation: q.explanation,
+                        translationVi: q.translationVi,
+                        media: q.media,
+                        points: blockInput.pointsPerQuestion || 1,
+                        order: idx + 1,
+                    }));
+
+                    sectionQuestionCount += questions.length;
+                    sectionPoints += questions.length * (blockInput.pointsPerQuestion || 1);
+
+                    await Question.updateMany(
+                        { _id: { $in: blockInput.questionIds } },
+                        { $inc: { usageCount: 1 } },
+                    );
+                }
+
+                processedBlocks.push(processedBlock);
+            }
         }
+
+        processedSections.push({
+            sectionType: section.sectionType,
+            sectionName: section.sectionName,
+            duration: section.duration,
+            order: section.order,
+            questionCount: sectionQuestionCount,
+            points: sectionPoints,
+            passingScore: section.passingScore || 0,
+            blocks: processedBlocks,
+        });
+
+        totalQuestions += sectionQuestionCount;
+        totalPoints += sectionPoints;
     }
 
     const exam = await Exam.create({
         examCode,
         title,
-        jlptLevel,
-        sections,
+        level,
+        sections: processedSections,
         totalQuestions,
+        totalPoints,
         createdBy: req.user.id,
         ...rest,
     });
@@ -36,160 +145,57 @@ export const createExam = asyncHandler(async (req, res) => {
     ApiResponse.created(res, { exam }, "Exam created successfully");
 });
 
-export const createExamFromTemplate = asyncHandler(async (req, res) => {
-    const { templateId, title } = req.body;
-
-    const template = await ExamTemplate.findById(templateId).populate("jlptLevel");
-
-    if (!template || !template.isActive) {
-        throw new NotFoundError("Template not found or inactive");
-    }
-
-    const sections = [];
-    let totalQuestions = 0;
-
-    for (const rule of template.autoGenerationRules) {
-        const query = {
-            jlptLevel: template.jlptLevel._id,
-            status: "approved",
-            isPublic: true,
-        };
-
-        if (rule.category) query.category = rule.category;
-        if (rule.questionType) query.questionType = rule.questionType;
-        if (rule.grammarTopics && rule.grammarTopics.length > 0) {
-            query.grammarTopic = { $in: rule.grammarTopics };
-        }
-
-        let questions = [];
-
-        if (rule.difficulty === "mixed" && rule.difficultyDistribution) {
-            const { easy, medium, hard } = rule.difficultyDistribution;
-
-            const easyQuestions = await Question.aggregate([
-                { $match: { ...query, difficulty: "easy" } },
-                { $sample: { size: easy || 0 } },
-            ]);
-
-            const mediumQuestions = await Question.aggregate([
-                { $match: { ...query, difficulty: "medium" } },
-                { $sample: { size: medium || 0 } },
-            ]);
-
-            const hardQuestions = await Question.aggregate([
-                { $match: { ...query, difficulty: "hard" } },
-                { $sample: { size: hard || 0 } },
-            ]);
-
-            questions = [...easyQuestions, ...mediumQuestions, ...hardQuestions];
-        } else {
-            if (rule.difficulty && rule.difficulty !== "mixed") {
-                query.difficulty = rule.difficulty;
-            }
-
-            questions = await Question.aggregate([
-                { $match: query },
-                { $sample: { size: rule.count } },
-            ]);
-        }
-
-        if (questions.length < rule.count) {
-            return ApiResponse.error(
-                res,
-                `Not enough questions for section ${rule.sectionType}. Found ${questions.length}, needed ${rule.count}`,
-                400,
-            );
-        }
-
-        let section = sections.find((s) => s.sectionType === rule.sectionType);
-        if (!section) {
-            section = {
-                sectionType: rule.sectionType,
-                sectionName: rule.sectionType,
-                duration: 0,
-                order: sections.length + 1,
-                questionGroups: [],
-            };
-            sections.push(section);
-        }
-
-        section.questionGroups.push({
-            category: rule.category,
-            questionIds: questions.map((q) => q._id),
-            order: section.questionGroups.length + 1,
-        });
-
-        totalQuestions += questions.length;
-
-        await Question.updateMany(
-            { _id: { $in: questions.map((q) => q._id) } },
-            { $inc: { usageCount: 1 } },
-        );
-    }
-
-    const examCode = `${template.jlptLevel.level}_AUTO_${Date.now()}`;
-
-    const exam = await Exam.create({
-        examCode,
-        title: title || `${template.name} - ${new Date().toLocaleDateString()}`,
-        jlptLevel: template.jlptLevel._id,
-        sections,
-        totalQuestions,
-        duration: template.jlptLevel.duration,
-        totalScore: template.jlptLevel.totalScore,
-        passingScore: template.jlptLevel.passingScore,
-        createdBy: req.user.id,
-    });
-
-    ApiResponse.success(res, { exam }, "Exam created from template successfully", 201);
-});
-
+/**
+ * Danh sách bài thi - có search & pagination
+ */
 export const getExams = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 20, jlptLevel, status, type, search } = req.body;
+    const { page = 1, limit = 20, level, status, type, search } = req.body;
 
     const query = {};
 
     if (req.user.role === "teacher") {
         query.$or = [{ createdBy: req.user.id }, { isPublic: true }];
-    } else if (req.user.role === "admin") {
-    } else {
+    } else if (req.user.role === "user") {
         query.status = "published";
         query.isPublic = true;
     }
 
-    if (jlptLevel) query.jlptLevel = jlptLevel;
+    if (level) query.level = level;
     if (status && req.user.role !== "user") query.status = status;
     if (type) query.type = type;
+
     if (search) {
-        query.title = { $regex: search, $options: "i" };
+        const searchCondition = [
+            { title: { $regex: search, $options: "i" } },
+            { description: { $regex: search, $options: "i" } },
+            { examCode: { $regex: search, $options: "i" } },
+        ];
+        if (query.$or) {
+            query.$and = [{ $or: query.$or }, { $or: searchCondition }];
+            delete query.$or;
+        } else {
+            query.$or = searchCondition;
+        }
     }
 
     const total = await Exam.countDocuments(query);
     const exams = await Exam.find(query)
-        .populate("jlptLevel", "level name")
         .populate("createdBy", "fullName email")
-        .select("-sections")
+        .select("-sections") // Không trả sections khi list
         .sort({ isFeatured: -1, createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(parseInt(limit));
 
-    ApiResponse.paginate(res, { exams }, page, limit, total);
+    ApiResponse.paginate(res, exams, page, limit, total, "Exams retrieved successfully");
 });
 
+/**
+ * Chi tiết bài thi (kèm tất cả câu hỏi embedded)
+ */
 export const getExamById = asyncHandler(async (req, res) => {
     const { examId } = req.body;
-    
-    const exam = await Exam.findById(examId)
-        .populate("jlptLevel")
-        .populate("createdBy", "fullName email")
-        .populate({
-            path: "sections.questionGroups.category",
-            select: "name code",
-        })
-        .populate({
-            path: "sections.questionGroups.questionIds",
-            select: "content options questionType difficulty",
-        });
+
+    const exam = await Exam.findById(examId).populate("createdBy", "fullName email");
 
     if (!exam) {
         return ApiResponse.error(res, "Exam not found", 404);
@@ -203,8 +209,13 @@ export const getExamById = asyncHandler(async (req, res) => {
 
     ApiResponse.success(res, { exam });
 });
-const { examId, ...updateData } = req.body;
-    
+
+/**
+ * Cập nhật bài thi (metadata, không thay đổi câu hỏi)
+ */
+export const updateExam = asyncHandler(async (req, res) => {
+    const { examId, ...updateData } = req.body;
+
     let exam = await Exam.findById(examId);
 
     if (!exam) {
@@ -215,20 +226,21 @@ const { examId, ...updateData } = req.body;
         return ApiResponse.error(res, "Not authorized to update this exam", 403);
     }
 
-    exam = await Exam.findByIdAndUpdate(examId, updateData
-
-    exam = await Exam.findByIdAndUpdate(req.params.id, req.body, {
+    exam = await Exam.findByIdAndUpdate(examId, updateData, {
         new: true,
         runValidators: true,
     });
 
     ApiResponse.success(res, { exam }, "Exam updated successfully");
 });
-{ examId } = req.body;
-    
-    const exam = await Exam.findById(examI
+
+/**
+ * Xóa bài thi
+ */
 export const deleteExam = asyncHandler(async (req, res) => {
-    const exam = await Exam.findById(req.params.id);
+    const { examId } = req.body;
+
+    const exam = await Exam.findById(examId);
 
     if (!exam) {
         return ApiResponse.error(res, "Exam not found", 404);
@@ -244,13 +256,16 @@ export const deleteExam = asyncHandler(async (req, res) => {
 
     await exam.deleteOne();
 
-    ApiRes{ examId } = req.body;
-    
-    const exam = await Exam.findById(examIsuccessfully");
+    ApiResponse.success(res, null, "Exam deleted successfully");
 });
 
+/**
+ * Publish bài thi
+ */
 export const publishExam = asyncHandler(async (req, res) => {
-    const exam = await Exam.findById(req.params.id);
+    const { examId } = req.body;
+
+    const exam = await Exam.findById(examId);
 
     if (!exam) {
         return ApiResponse.error(res, "Exam not found", 404);
@@ -260,9 +275,383 @@ export const publishExam = asyncHandler(async (req, res) => {
         return ApiResponse.error(res, "Not authorized", 403);
     }
 
+    if (exam.totalQuestions === 0) {
+        return ApiResponse.error(res, "Cannot publish exam with no questions", 400);
+    }
+
     exam.status = "published";
     exam.publishedAt = new Date();
     await exam.save();
 
     ApiResponse.success(res, { exam }, "Exam published successfully");
+});
+
+/**
+ * Lấy bài thi mẫu - unified blocks structure
+ */
+export const getSampleExam = asyncHandler(async (req, res) => {
+    const sampleExam = {
+        examCode: "JLPT_N5_SAMPLE_2024",
+        title: "JLPT N5 Sample Exam - Official Format",
+        level: "N5",
+        sections: [
+            {
+                sectionType: "vocabulary",
+                sectionName: "Character / Vocabulary (文字・語彙)",
+                duration: 20,
+                order: 1,
+                questionCount: 4,
+                points: 4,
+                passingScore: 2,
+                blocks: [
+                    {
+                        sourceBlockId: null,
+                        title: null,
+                        context: null,
+                        order: 1,
+                        questions: [
+                            {
+                                sourceQuestionId: null,
+                                questionText: "____は毎日学校に行きます。",
+                                options: [
+                                    { label: "1", text: "田中さん" },
+                                    { label: "2", text: "学生です" },
+                                    { label: "3", text: "朝です" },
+                                    { label: "4", text: "友達です" },
+                                ],
+                                correctAnswer: "1",
+                                explanation:
+                                    "田中さん means 'Tanaka' and is the correct subject for this sentence.",
+                                translationVi: "Tanaka goes to school every day.",
+                                points: 1,
+                                order: 1,
+                            },
+                        ],
+                    },
+                    {
+                        sourceBlockId: null,
+                        title: null,
+                        context: null,
+                        order: 2,
+                        questions: [
+                            {
+                                sourceQuestionId: null,
+                                questionText: "この漢字は何ですか。(分 けのぶんI)",
+                                options: [
+                                    { label: "1", text: "ぶん" },
+                                    { label: "2", text: "わん" },
+                                    { label: "3", text: "ふん" },
+                                    { label: "4", text: "ぺん" },
+                                ],
+                                correctAnswer: "1",
+                                explanation: "分 (ぶん) means minutes or portions.",
+                                translationVi: "What is this kanji? (分)",
+                                points: 1,
+                                order: 1,
+                            },
+                        ],
+                    },
+                    {
+                        sourceBlockId: null,
+                        title: null,
+                        context: null,
+                        order: 3,
+                        questions: [
+                            {
+                                sourceQuestionId: null,
+                                questionText: "私の趣味は_____です。写真を撮ることが好きです。",
+                                options: [
+                                    { label: "1", text: "カメラ" },
+                                    { label: "2", text: "カメラマン" },
+                                    { label: "3", text: "カメラを撮る" },
+                                    { label: "4", text: "写真" },
+                                ],
+                                correctAnswer: "4",
+                                explanation:
+                                    "写真 (しゃしん) means 'photography' which fits the context.",
+                                translationVi: "My hobby is ____. I like taking photos.",
+                                points: 1,
+                                order: 1,
+                            },
+                        ],
+                    },
+                    {
+                        sourceBlockId: null,
+                        title: null,
+                        context: null,
+                        order: 4,
+                        questions: [
+                            {
+                                sourceQuestionId: null,
+                                questionText: "会社は午後5時に_____です。",
+                                options: [
+                                    { label: "1", text: "閉めます" },
+                                    { label: "2", text: "終わります" },
+                                    { label: "3", text: "なります" },
+                                    { label: "4", text: "あります" },
+                                ],
+                                correctAnswer: "2",
+                                explanation: "終わります (おわります) means 'closes/finishes'.",
+                                translationVi: "The company _____ at 5 PM.",
+                                points: 1,
+                                order: 1,
+                            },
+                        ],
+                    },
+                ],
+            },
+            {
+                sectionType: "grammar",
+                sectionName: "Grammar (文法)",
+                duration: 30,
+                order: 2,
+                questionCount: 4,
+                points: 4,
+                passingScore: 2,
+                blocks: [
+                    {
+                        sourceBlockId: null,
+                        title: null,
+                        context: null,
+                        order: 1,
+                        questions: [
+                            {
+                                sourceQuestionId: null,
+                                questionText: "田中さんは毎日公園_____歩きます。",
+                                options: [
+                                    { label: "1", text: "を" },
+                                    { label: "2", text: "で" },
+                                    { label: "3", text: "に" },
+                                    { label: "4", text: "から" },
+                                ],
+                                correctAnswer: "2",
+                                explanation: "で marks the location where an action takes place.",
+                                translationVi: "Tanaka walks in the park every day.",
+                                points: 1,
+                                order: 1,
+                            },
+                        ],
+                    },
+                    {
+                        sourceBlockId: null,
+                        title: null,
+                        context: null,
+                        order: 2,
+                        questions: [
+                            {
+                                sourceQuestionId: null,
+                                questionText: "私は昨年東京_____中国へ旅行しました。",
+                                options: [
+                                    { label: "1", text: "から" },
+                                    { label: "2", text: "で" },
+                                    { label: "3", text: "まで" },
+                                    { label: "4", text: "に" },
+                                ],
+                                correctAnswer: "1",
+                                explanation: "から means 'from' indicating the starting point.",
+                                translationVi: "Last year, I traveled from Tokyo to China.",
+                                points: 1,
+                                order: 1,
+                            },
+                        ],
+                    },
+                    {
+                        sourceBlockId: null,
+                        title: null,
+                        context: null,
+                        order: 3,
+                        questions: [
+                            {
+                                sourceQuestionId: null,
+                                questionText: "田中さんは毎日6時_____起きます。",
+                                options: [
+                                    { label: "1", text: "までに" },
+                                    { label: "2", text: "から" },
+                                    { label: "3", text: "に" },
+                                    { label: "4", text: "で" },
+                                ],
+                                correctAnswer: "3",
+                                explanation: "に marks the time at which an action occurs.",
+                                translationVi: "Tanaka wakes up at 6 o'clock every day.",
+                                points: 1,
+                                order: 1,
+                            },
+                        ],
+                    },
+                    {
+                        sourceBlockId: null,
+                        title: null,
+                        context: null,
+                        order: 4,
+                        questions: [
+                            {
+                                sourceQuestionId: null,
+                                questionText: "私は毎日コーヒーを飲みながら、新聞_____です。",
+                                options: [
+                                    { label: "1", text: "を読みます" },
+                                    { label: "2", text: "を読んでいます" },
+                                    { label: "3", text: "を読みながらです" },
+                                    { label: "4", text: "は読みます" },
+                                ],
+                                correctAnswer: "1",
+                                explanation:
+                                    "Reading newspaper is the action being done while drinking coffee.",
+                                translationVi:
+                                    "I read the newspaper while drinking coffee every day.",
+                                points: 1,
+                                order: 1,
+                            },
+                        ],
+                    },
+                ],
+            },
+            {
+                sectionType: "reading",
+                sectionName: "Reading Comprehension (読解)",
+                duration: 40,
+                order: 3,
+                questionCount: 3,
+                points: 3,
+                passingScore: 2,
+                blocks: [
+                    {
+                        sourceBlockId: null,
+                        title: "A Day in the Life",
+                        instruction:
+                            "読んでから、問題に答えてください。(Read and then answer the questions.)",
+                        questionType: "reading-comprehension",
+                        order: 1,
+                        context: {
+                            text: "私は今年から会社で働いています。会社は東京にあります。毎日朝7時に家を出て、電車で会社に行きます。電車は30分ぐらいかかります。会社では9時から5時まで働きます。昼ごはんは12時から1時までです。昼ごはんの後で、また働きます。5時に会社が終わったら、友達に会うこともあります。友達と一緒にコーヒーを飲んだり、ご飯を食べたりします。家に帰ることは夜8時ぐらいです。",
+                        },
+                        questions: [
+                            {
+                                sourceQuestionId: null,
+                                questionText: "この人の会社は何時から何時まで働きますか。",
+                                options: [
+                                    { label: "1", text: "7時から5時まで" },
+                                    { label: "2", text: "9時から5時まで" },
+                                    { label: "3", text: "8時から6時まで" },
+                                    { label: "4", text: "10時から6時まで" },
+                                ],
+                                correctAnswer: "2",
+                                explanation: "The passage states 会社では9時から5時まで働きます。",
+                                translationVi: "What time does this person work at the company?",
+                                points: 1,
+                                order: 1,
+                            },
+                            {
+                                sourceQuestionId: null,
+                                questionText: "この人は会社に行くために、何を使いますか。",
+                                options: [
+                                    { label: "1", text: "車" },
+                                    { label: "2", text: "電車" },
+                                    { label: "3", text: "バス" },
+                                    { label: "4", text: "自転車" },
+                                ],
+                                correctAnswer: "2",
+                                explanation:
+                                    "The passage mentions 電車で会社に行きます (goes to company by train).",
+                                translationVi: "What does this person use to go to the company?",
+                                points: 1,
+                                order: 2,
+                            },
+                            {
+                                sourceQuestionId: null,
+                                questionText: "この人はいつ家に帰ることが多いですか。",
+                                options: [
+                                    { label: "1", text: "夜6時ぐらい" },
+                                    { label: "2", text: "夜7時ぐらい" },
+                                    { label: "3", text: "夜8時ぐらい" },
+                                    { label: "4", text: "夜9時ぐらい" },
+                                ],
+                                correctAnswer: "3",
+                                explanation: "The passage states 家に帰ることは夜8時ぐらいです。",
+                                translationVi: "What time does this person usually go home?",
+                                points: 1,
+                                order: 3,
+                            },
+                        ],
+                    },
+                ],
+            },
+            {
+                sectionType: "listening",
+                sectionName: "Listening Comprehension (聴解)",
+                duration: 20,
+                order: 4,
+                questionCount: 3,
+                points: 3,
+                passingScore: 2,
+                blocks: [
+                    {
+                        sourceBlockId: null,
+                        title: "Dialogue at a Restaurant",
+                        instruction:
+                            "Listen to the dialogue and answer the questions below. You will hear the dialogue twice.",
+                        questionType: "listening-comprehension",
+                        order: 1,
+                        context: {
+                            text: "店員: いらっしゃいませ。何名様ですか？\nお客さん: 2人です。\n店員: こちらへどうぞ。メニューをどうぞ。\nお客さん: ありがとうございます。この定食は何ですか？\n店員: 特製カレーライスです。とても人気があります。\nお客さん: わかりました。では、カレーライスとコーヒーをください。",
+                            audioUrl: "listening_sample_n5_1.mp3",
+                            audioScript: "Restaurant dialogue",
+                        },
+                        questions: [
+                            {
+                                sourceQuestionId: null,
+                                questionText: "何人来ましたか。",
+                                options: [
+                                    { label: "1", text: "1人" },
+                                    { label: "2", text: "2人" },
+                                    { label: "3", text: "3人" },
+                                    { label: "4", text: "4人" },
+                                ],
+                                correctAnswer: "2",
+                                explanation: "The customer says 2人です。",
+                                translationVi: "How many people came?",
+                                points: 1,
+                                order: 1,
+                            },
+                            {
+                                sourceQuestionId: null,
+                                questionText: "定食は何ですか。",
+                                options: [
+                                    { label: "1", text: "うどん" },
+                                    { label: "2", text: "天ぷら" },
+                                    { label: "3", text: "カレーライス" },
+                                    { label: "4", text: "寿司" },
+                                ],
+                                correctAnswer: "3",
+                                explanation: "The staff mentions 特製カレーライスです。",
+                                translationVi: "What is the special set meal?",
+                                points: 1,
+                                order: 2,
+                            },
+                            {
+                                sourceQuestionId: null,
+                                questionText: "客さんは何を飲みますか。",
+                                options: [
+                                    { label: "1", text: "ジュース" },
+                                    { label: "2", text: "ビール" },
+                                    { label: "3", text: "水" },
+                                    { label: "4", text: "コーヒー" },
+                                ],
+                                correctAnswer: "4",
+                                explanation:
+                                    "The customer orders カレーライスとコーヒーをください。",
+                                translationVi: "What drink did the customer order?",
+                                points: 1,
+                                order: 3,
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+        totalQuestions: 14,
+        totalPoints: 14,
+        duration: 110,
+    };
+
+    ApiResponse.success(res, sampleExam, "Sample exam fetched successfully");
 });

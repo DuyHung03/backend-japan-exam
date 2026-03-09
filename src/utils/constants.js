@@ -31,24 +31,12 @@ export const ATTEMPT_STATUS = {
     SUBMITTED: "submitted",
 };
 
+// 4 phần chuẩn JLPT
 export const SECTION_TYPES = {
-    LANGUAGE_KNOWLEDGE: "language_knowledge",
-    READING: "reading",
-    LISTENING: "listening",
-};
-
-export const QUESTION_TYPES = {
-    KANJI_READING: "kanji_reading",
-    KANJI_WRITING: "kanji_writing",
-    VOCAB_MEANING: "vocab_meaning",
-    VOCAB_USAGE: "vocab_usage",
-    GRAMMAR_CHOOSE: "grammar_choose",
-    GRAMMAR_ARRANGE: "grammar_arrange",
-    READING_COMPREHENSION: "reading_comprehension",
-    LISTENING_TASK: "listening_task",
-    LISTENING_POINT: "listening_point",
-    LISTENING_GENERAL: "listening_general",
-    LISTENING_QUICK: "listening_quick",
+    VOCABULARY: "vocabulary", // 文字・語彙 - Từ vựng
+    GRAMMAR: "grammar", // 文法 - Ngữ pháp
+    READING: "reading", // 読解 - Đọc hiểu
+    LISTENING: "listening", // 聴解 - Nghe
 };
 
 export const DIFFICULTY_LEVELS = {
@@ -59,14 +47,37 @@ export const DIFFICULTY_LEVELS = {
 
 export const JLPT_LEVELS = ["N5", "N4", "N3", "N2", "N1"];
 
-export const SKILL_LEVELS = {
-    WEAK: "weak",
-    AVERAGE: "average",
-    GOOD: "good",
-    EXCELLENT: "excellent",
-};
+// Phân loại chi tiết câu hỏi JLPT theo section (nguồn: jlpt.jp)
+export const QUESTION_TYPES = {
+    // Vocabulary (文字・語彙)
+    KANJI_READING: "kanji_reading", // 漢字読み
+    ORTHOGRAPHY: "orthography", // 表記
+    WORD_FORMATION: "word_formation", // 語形成
+    CONTEXTUAL_EXPRESSIONS: "contextual_expressions", // 文脈規定
+    PARAPHRASES: "paraphrases", // 言い換え類義
+    USAGE: "usage", // 用法
 
-export const RANKS = ["A", "B", "C", "D", "F"];
+    // Grammar (文法)
+    GRAMMAR_FORM: "grammar_form", // 文の文法1 (文法形式の判断)
+    SENTENCE_COMPOSITION: "sentence_composition", // 文の文法2 (文の組み立て)
+    TEXT_GRAMMAR: "text_grammar", // 文章の文法
+
+    // Reading (読解)
+    SHORT_PASSAGES: "short_passages", // 短文
+    MID_PASSAGES: "mid_passages", // 中文
+    LONG_PASSAGES: "long_passages", // 長文
+    INTEGRATED_READING: "integrated_reading", // 統合理解
+    THEMATIC_COMPREHENSION: "thematic_comprehension", // 主張理解
+    INFORMATION_RETRIEVAL: "information_retrieval", // 情報検索
+
+    // Listening (聴解)
+    TASK_BASED: "task_based", // 課題理解
+    KEY_POINTS: "key_points", // ポイント理解
+    GENERAL_OUTLINE: "general_outline", // 概要理解
+    VERBAL_EXPRESSIONS: "verbal_expressions", // 発話表現
+    QUICK_RESPONSE: "quick_response", // 即時応答
+    INTEGRATED_LISTENING: "integrated_listening", // 統合理解
+};
 
 export const HTTP_STATUS = {
     OK: 200,

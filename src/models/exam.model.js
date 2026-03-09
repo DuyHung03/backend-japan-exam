@@ -1,5 +1,106 @@
 import mongoose from "mongoose";
 
+/**
+ * Exam - Bài thi JLPT
+ *
+ * Bài thi gồm 4 phần (sections) chuẩn JLPT.
+ * Mỗi phần chứa nhiều QuestionBlock (embedded).
+ * Câu hỏi được COPY từ Question Bank vào exam → hoàn toàn độc lập.
+ *
+ * Cấu trúc: Exam → Sections → Blocks → Questions (tất cả embedded)
+ */
+
+// Schema cho câu hỏi embedded trong bài thi (copy từ bank)
+const examQuestionSchema = new mongoose.Schema({
+    sourceQuestionId: {
+        type: mongoose.Schema.Types.ObjectId, // ID gốc trong bank (để tracking)
+    },
+    questionText: {
+        type: String,
+        required: true,
+    },
+    options: [
+        {
+            label: { type: String, required: true },
+            text: { type: String, required: true },
+        },
+    ],
+    correctAnswer: {
+        type: String,
+        required: true,
+    },
+    explanation: String,
+    translationVi: String,
+    media: {
+        image: String,
+        audio: String,
+    },
+    points: {
+        type: Number,
+        default: 1,
+    },
+    order: {
+        type: Number,
+        default: 0,
+    },
+});
+
+// Schema cho block câu hỏi embedded trong bài thi
+const examBlockSchema = new mongoose.Schema({
+    sourceBlockId: mongoose.Schema.Types.ObjectId, // ID gốc QuestionBlock trong bank
+    title: String,
+    questionType: String,
+    instruction: String,
+    order: {
+        type: Number,
+        default: 0,
+    },
+    // Context dùng chung (null = standalone)
+    context: {
+        text: String,
+        audioUrl: String,
+        audioScript: String,
+        imageUrl: String,
+    },
+    questions: [examQuestionSchema],
+});
+
+// Schema cho phần thi
+const examSectionSchema = new mongoose.Schema({
+    sectionType: {
+        type: String,
+        enum: ["vocabulary", "grammar", "reading", "listening"],
+        required: true,
+    },
+    sectionName: {
+        type: String,
+        required: true,
+    },
+    duration: {
+        type: Number, // phút
+        required: true,
+    },
+    order: {
+        type: Number,
+        required: true,
+    },
+    questionCount: {
+        type: Number,
+        default: 0,
+    },
+    points: {
+        type: Number,
+        default: 0,
+    },
+    passingScore: {
+        type: Number,
+        default: 0,
+    },
+    // Tất cả câu hỏi đều nằm trong blocks
+    blocks: [examBlockSchema],
+});
+
+// Schema chính cho bài thi
 const examSchema = new mongoose.Schema(
     {
         examCode: {
@@ -10,12 +111,12 @@ const examSchema = new mongoose.Schema(
         },
         title: {
             type: String,
-            required: true,
+            required: [true, "Title is required"],
         },
-        jlptLevel: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "JlptLevel",
-            required: true,
+        level: {
+            type: String,
+            enum: ["N5", "N4", "N3", "N2", "N1"],
+            required: [true, "JLPT level is required"],
             index: true,
         },
         type: {
@@ -25,82 +126,29 @@ const examSchema = new mongoose.Schema(
         },
         description: String,
         instructions: String,
-        sections: [
-            {
-                sectionType: {
-                    type: String,
-                    enum: ["language_knowledge", "reading", "listening"],
-                    required: true,
-                },
-                sectionName: {
-                    type: String,
-                    required: true,
-                },
-                duration: {
-                    type: Number,
-                    required: true,
-                },
-                order: {
-                    type: Number,
-                    required: true,
-                },
-                questionGroups: [
-                    {
-                        // group can be either standalone questions or a shared-content group
-                        groupType: {
-                            type: String,
-                            enum: ["standalone", "shared_content"],
-                            default: "standalone",
-                        },
-                        // when groupType = shared_content, reference the SharedContent document
-                        sharedContent: {
-                            type: mongoose.Schema.Types.ObjectId,
-                            ref: "SharedContent",
-                        },
 
-                        // legacy / standalone support: category + questions list
-                        category: {
-                            type: mongoose.Schema.Types.ObjectId,
-                            ref: "QuestionCategory",
-                        },
-                        groupName: String,
-                        instruction: String,
-                        // new structure: explicit questions with order and points
-                        questions: [
-                            {
-                                questionId: {
-                                    type: mongoose.Schema.Types.ObjectId,
-                                    ref: "Question",
-                                },
-                                order: Number,
-                                points: {
-                                    type: Number,
-                                    default: 1,
-                                },
-                            },
-                        ],
-                        order: Number,
-                        totalPoints: Number,
-                    },
-                ],
-            },
-        ],
+        // ===== Cấu trúc bài thi =====
+        sections: [examSectionSchema],
+
+        // ===== Tổng hợp =====
         totalQuestions: {
             type: Number,
             required: true,
         },
-        totalScore: {
+        totalPoints: {
             type: Number,
             default: 180,
         },
         duration: {
-            type: Number,
+            type: Number, // tổng thời gian (phút)
             required: true,
         },
         passingScore: {
             type: Number,
             default: 100,
         },
+
+        // ===== Trạng thái =====
         status: {
             type: String,
             enum: ["draft", "published", "archived"],
@@ -121,6 +169,8 @@ const examSchema = new mongoose.Schema(
             default: false,
             index: true,
         },
+
+        // ===== Tracking =====
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
@@ -141,6 +191,7 @@ const examSchema = new mongoose.Schema(
     },
 );
 
-examSchema.index({ jlptLevel: 1, status: 1, isPublic: 1 });
+examSchema.index({ level: 1, status: 1, isPublic: 1 });
+examSchema.index({ createdBy: 1 });
 
 export default mongoose.model("Exam", examSchema);

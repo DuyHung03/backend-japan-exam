@@ -8,12 +8,14 @@ const router = express.Router();
 
 router.use(protect);
 
+// Bắt đầu làm bài thi
 router.post(
     "/start",
     [body("examId").notEmpty().withMessage("Exam ID is required"), validate],
     examAttemptController.startExam,
 );
 
+// Nộp câu trả lời
 router.post(
     "/submit-answer",
     [
@@ -25,24 +27,21 @@ router.post(
     examAttemptController.submitAnswer,
 );
 
+// Nộp bài thi
 router.post(
     "/submit",
     [body("attemptId").notEmpty().withMessage("Attempt ID is required"), validate],
     examAttemptController.submitExam,
 );
 
+// Lịch sử làm bài
 router.post("/my-attempts", examAttemptController.getMyAttempts);
 
+// Chi tiết lần làm bài
 router.post(
     "/get-by-id",
     [body("attemptId").notEmpty().withMessage("Attempt ID is required"), validate],
     examAttemptController.getAttemptById,
-);
-
-router.post(
-    "/ai-analysis",
-    [body("attemptId").notEmpty().withMessage("Attempt ID is required"), validate],
-    examAttemptController.generateAIAnalysis,
 );
 
 export default router;

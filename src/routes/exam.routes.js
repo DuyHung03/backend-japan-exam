@@ -8,33 +8,33 @@ const router = express.Router();
 
 router.use(protect);
 
+// Tạo bài thi (copy câu hỏi từ bank)
 router.post(
     "/create",
     authorize("teacher", "admin"),
     [
         body("title").notEmpty().withMessage("Title is required"),
-        body("jlptLevel").notEmpty().withMessage("JLPT level is required"),
+        body("level")
+            .isIn(["N5", "N4", "N3", "N2", "N1"])
+            .withMessage("Level must be N5, N4, N3, N2, or N1"),
         body("sections").isArray({ min: 1 }).withMessage("At least 1 section is required"),
+        body("duration").isNumeric().withMessage("Duration is required"),
         validate,
     ],
     examController.createExam,
 );
 
-router.post(
-    "/from-template",
-    authorize("teacher", "admin"),
-    [body("templateId").notEmpty().withMessage("Template ID is required"), validate],
-    examController.createExamFromTemplate,
-);
-
+// Danh sách bài thi
 router.post("/list", examController.getExams);
 
+// Chi tiết bài thi
 router.post(
     "/get-by-id",
     [body("examId").notEmpty().withMessage("Exam ID is required"), validate],
     examController.getExamById,
 );
 
+// Cập nhật bài thi
 router.post(
     "/update",
     authorize("teacher", "admin"),
@@ -42,6 +42,7 @@ router.post(
     examController.updateExam,
 );
 
+// Xóa bài thi
 router.post(
     "/delete",
     authorize("teacher", "admin"),
@@ -49,11 +50,15 @@ router.post(
     examController.deleteExam,
 );
 
+// Publish bài thi
 router.post(
     "/publish",
     authorize("teacher", "admin"),
     [body("examId").notEmpty().withMessage("Exam ID is required"), validate],
     examController.publishExam,
 );
+
+// Lấy bài thi mẫu
+router.get("/sample", examController.getSampleExam);
 
 export default router;

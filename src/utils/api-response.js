@@ -16,17 +16,19 @@ export default class ApiResponse {
     }
 
     static paginate(res, data, page, limit, total, message = "Success") {
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
         return res.status(200).json({
             success: true,
             message,
-            data,
+            data: Array.isArray(data) ? data : data,
             pagination: {
-                page: parseInt(page),
-                limit: parseInt(limit),
+                page: pageNum,
+                limit: limitNum,
                 total,
-                pages: Math.ceil(total / limit),
-                hasNext: page * limit < total,
-                hasPrev: page > 1,
+                pages: Math.ceil(total / limitNum),
+                hasNext: pageNum * limitNum < total,
+                hasPrev: pageNum > 1,
             },
         });
     }

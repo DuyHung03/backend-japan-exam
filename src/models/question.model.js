@@ -1,101 +1,65 @@
 import mongoose from "mongoose";
 
+/**
+ * Question - Câu hỏi trong ngân hàng
+ *
+ * Mỗi câu hỏi luôn thuộc 1 QuestionBlock:
+ *   - Standalone: block chỉ có 1 câu, không có context
+ *   - Group: block có context chung + nhiều câu
+ *
+ * questionType theo chuẩn JLPT:
+ *   Vocabulary: kanji_reading, orthography, word_formation, contextual_expressions, paraphrases, usage
+ *   Grammar: grammar_form, sentence_composition, text_grammar
+ *   Reading: short_passages, mid_passages, long_passages, integrated_reading, thematic_comprehension, information_retrieval
+ *   Listening: task_based, key_points, general_outline, verbal_expressions, quick_response, integrated_listening
+ */
 const questionSchema = new mongoose.Schema(
     {
-        jlptLevel: {
+        block: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "JlptLevel",
-            required: true,
+            ref: "QuestionBlock",
+            required: [true, "Block is required"],
             index: true,
         },
-        category: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "QuestionCategory",
-            required: true,
-            index: true,
-        },
-        grammarTopic: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "GrammarTopic",
-        },
-        // Optional reference to shared content (passage / audio) when question belongs to a group
-        sharedContent: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "SharedContent",
-        },
-        questionType: {
-            type: String,
-            enum: [
-                "kanji_reading",
-                "kanji_writing",
-                "vocab_meaning",
-                "vocab_usage",
-                "grammar_choose",
-                "grammar_arrange",
-                "reading_comprehension",
-                "listening_task",
-                "listening_point",
-                "listening_general",
-                "listening_quick",
-            ],
-            required: true,
-            index: true,
-        },
-        // Position in a shared-content group (optional)
-        orderInGroup: {
+        orderInBlock: {
             type: Number,
-            default: 1,
+            default: 0,
         },
+        questionText: {
+            type: String,
+            required: [true, "Question text is required"],
+        },
+        media: {
+            image: String,
+            audio: String,
+        },
+        options: [
+            {
+                label: { type: String, required: true },
+                text: { type: String, required: true },
+            },
+        ],
+        correctAnswer: {
+            type: String,
+            required: [true, "Correct answer is required"],
+        },
+        explanation: String,
+        translationVi: String,
         difficulty: {
             type: String,
             enum: ["easy", "medium", "hard"],
             default: "medium",
         },
-        content: {
-            text: {
-                type: String,
-                required: true,
-            },
-            images: [String],
-            audio: String,
-            passage: String,
-            passageImages: [String],
-        },
-        options: [
-            {
-                label: {
-                    type: String,
-                    required: true,
-                },
-                text: {
-                    type: String,
-                    required: true,
-                },
-                image: String,
-            },
-        ],
-        correctAnswer: {
-            type: String,
-            required: true,
-        },
-        explanation: String,
-        translationVi: String,
-        status: {
-            type: String,
-            enum: ["draft", "pending", "approved", "rejected"],
-            default: "draft",
-            index: true,
+        tags: [String],
+        isActive: {
+            type: Boolean,
+            default: true,
         },
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             required: true,
         },
-        approvedBy: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-        },
-        approvedAt: Date,
         usageCount: {
             type: Number,
             default: 0,
@@ -105,19 +69,21 @@ const questionSchema = new mongoose.Schema(
             min: 0,
             max: 100,
         },
-        tags: [String],
-        isPublic: {
-            type: Boolean,
-            default: false,
-            index: true,
-        },
     },
-    {
-        timestamps: true,
-    },
+    { timestamps: true },
 );
 
-questionSchema.index({ jlptLevel: 1, category: 1, status: 1 });
+// Compound indexes
+questionSchema.index({ block: 1, orderInBlock: 1 });
 questionSchema.index({ createdBy: 1 });
+questionSchema.index({ block: 1, isActive: 1 });
+
+// Full-text search index
+questionSchema.index({
+    questionText: "text",
+    explanation: "text",
+    translationVi: "text",
+    tags: "text",
+});
 
 export default mongoose.model("Question", questionSchema);

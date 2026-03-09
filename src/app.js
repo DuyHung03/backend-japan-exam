@@ -9,13 +9,9 @@ import Logger from "./utils/logger.js";
 
 import adminRoutes from "./routes/admin.routes.js";
 import authRoutes from "./routes/auth.routes.js";
-import categoryRoutes from "./routes/category.routes.js";
 import examAttemptRoutes from "./routes/exam-attempt.routes.js";
-import examTemplateRoutes from "./routes/exam-template.routes.js";
 import examRoutes from "./routes/exam.routes.js";
-import grammarTopicRoutes from "./routes/grammar-topic.routes.js";
-import jlptLevelRoutes from "./routes/jlpt-level.routes.js";
-import publicRoutes from "./routes/public.routes.js";
+import questionBlockRoutes from "./routes/question-block.routes.js";
 import questionRoutes from "./routes/question.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import userRoutes from "./routes/user.routes.js";
@@ -54,14 +50,10 @@ app.get("/health", (req, res) => {
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/users", userRoutes);
-app.use("/api/v1/jlpt-levels", jlptLevelRoutes);
-app.use("/api/v1/categories", categoryRoutes);
-app.use("/api/v1/grammar-topics", grammarTopicRoutes);
+app.use("/api/v1/question-blocks", questionBlockRoutes);
 app.use("/api/v1/questions", questionRoutes);
 app.use("/api/v1/exams", examRoutes);
 app.use("/api/v1/exam-attempts", examAttemptRoutes);
-app.use("/api/v1/exam-templates", examTemplateRoutes);
-app.use("/api/v1/public", publicRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/upload", uploadRoutes);
 

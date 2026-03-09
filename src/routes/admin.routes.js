@@ -9,6 +9,7 @@ const router = express.Router();
 router.use(protect);
 router.use(authorize("admin"));
 
+// Quản lý users
 router.post("/users", adminController.getAllUsers);
 
 router.post(
@@ -33,7 +34,7 @@ router.post(
     adminController.deleteUser,
 );
 
+// Thống kê
 router.post("/statistics", adminController.getStatistics);
-router.post("/statistics/export", adminController.exportStatistics);
 
 export default router;
