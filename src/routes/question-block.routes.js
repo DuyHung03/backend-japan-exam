@@ -1,5 +1,6 @@
 import express from "express";
 import { body } from "express-validator";
+import { updateFullBlock } from "../controllers/question-block-full-update.controller.js";
 import * as blockController from "../controllers/question-block.controller.js";
 import { authorize, protect } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validator.middleware.js";
@@ -49,6 +50,18 @@ router.post(
     authorize("teacher", "admin"),
     [body("blockId").notEmpty().withMessage("Block ID is required"), validate],
     blockController.updateBlock,
+);
+
+// Cập nhật toàn bộ block + questions
+router.post(
+    "/update-full",
+    authorize("teacher", "admin"),
+    [
+        body("blockId").notEmpty().withMessage("Block ID is required"),
+        body("questions").isArray({ min: 1 }).withMessage("Block must have at least 1 question"),
+        validate,
+    ],
+    updateFullBlock,
 );
 
 // Xóa block + tất cả câu hỏi

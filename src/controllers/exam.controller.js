@@ -11,12 +11,13 @@ import { asyncHandler } from "../utils/async-handler.js";
  * - title, level, type, duration, description, instructions
  * - sections: array gồm các phần thi, mỗi phần có:
  *   - sectionType, sectionName, duration, order, passingScore
- *   - blocks: array gồm các block câu hỏi
- *     - blockId: ObjectId (copy cả QuestionBlock từ bank)
- *     - HOẶC questionIds: [ObjectId] (pick câu hỏi riêng lẻ từ bank)
- *     - title?, instruction?, questionType?, order?, pointsPerQuestion?
+ *   - blocks: array gồm các block câu hỏi, MỖI block dùng 1 trong 3 cách:
+ *     1) blockId: ObjectId → copy cả QuestionBlock từ bank
+ *     2) questionIds: [ObjectId] → pick câu hỏi riêng lẻ từ bank
+ *     3) questions: [{ questionText, options, correctAnswer, ... }] → inline (thủ công/file/json)
+ *     + title?, instruction?, questionType?, order?, pointsPerQuestion?, context?
  *
- * Câu hỏi được COPY từ bank vào exam (embedded, độc lập).
+ * Câu hỏi được COPY hoặc nhúng trực tiếp vào exam (embedded, độc lập).
  */
 export const createExam = asyncHandler(async (req, res) => {
     const { title, level, sections, ...rest } = req.body;
@@ -39,12 +40,12 @@ export const createExam = asyncHandler(async (req, res) => {
                     instruction: blockInput.instruction,
                     questionType: blockInput.questionType,
                     order: blockInput.order || 0,
-                    context: null,
+                    context: blockInput.context || null,
                     questions: [],
                 };
 
                 if (blockInput.blockId) {
-                    // Copy cả block từ bank
+                    // ─── Cách 1: Copy cả block từ bank ───
                     const block = await QuestionBlock.findById(blockInput.blockId);
                     if (!block) {
                         return ApiResponse.error(
@@ -86,7 +87,7 @@ export const createExam = asyncHandler(async (req, res) => {
                     Array.isArray(blockInput.questionIds) &&
                     blockInput.questionIds.length > 0
                 ) {
-                    // Pick câu hỏi riêng lẻ từ bank
+                    // ─── Cách 2: Pick câu hỏi riêng lẻ từ bank ───
                     const questions = await Question.find({
                         _id: { $in: blockInput.questionIds },
                     });
@@ -109,6 +110,28 @@ export const createExam = asyncHandler(async (req, res) => {
                     await Question.updateMany(
                         { _id: { $in: blockInput.questionIds } },
                         { $inc: { usageCount: 1 } },
+                    );
+                } else if (Array.isArray(blockInput.questions) && blockInput.questions.length > 0) {
+                    // ─── Cách 3: Inline questions (thủ công / import file / JSON) ───
+                    processedBlock.questions = blockInput.questions.map((q, idx) => ({
+                        questionText: q.questionText,
+                        options: Array.isArray(q.options)
+                            ? q.options
+                            : ["A", "B", "C", "D"]
+                                  .filter((l) => q[`option${l}`] != null)
+                                  .map((l) => ({ label: l, text: q[`option${l}`] })),
+                        correctAnswer: q.correctAnswer,
+                        explanation: q.explanation || "",
+                        translationVi: q.translationVi || "",
+                        media: q.media || {},
+                        points: q.points || blockInput.pointsPerQuestion || 1,
+                        order: q.order || idx + 1,
+                    }));
+
+                    sectionQuestionCount += processedBlock.questions.length;
+                    sectionPoints += processedBlock.questions.reduce(
+                        (s, q) => s + (q.points || 1),
+                        0,
                     );
                 }
 
@@ -195,7 +218,7 @@ export const getExams = asyncHandler(async (req, res) => {
 export const getExamById = asyncHandler(async (req, res) => {
     const { examId } = req.body;
 
-    const exam = await Exam.findById(examId).populate("createdBy", "fullName email");
+    const exam = await Exam.findById(examId).populate("createdBy", "fullName email").lean(); // Use lean for better performance
 
     if (!exam) {
         return ApiResponse.error(res, "Exam not found", 404);
@@ -206,6 +229,26 @@ export const getExamById = asyncHandler(async (req, res) => {
     }
 
     await Exam.findByIdAndUpdate(examId, { $inc: { viewCount: 1 } });
+
+    // Calculate total questions for display
+    let totalQuestions = 0;
+    if (exam.sections) {
+        exam.sections.forEach((section) => {
+            if (section.blocks) {
+                section.blocks.forEach((block) => {
+                    if (block.questions) {
+                        totalQuestions += block.questions.length;
+                    }
+                });
+            }
+        });
+    }
+
+    // Add calculated total to exam object
+    exam.totalQuestions = totalQuestions;
+
+    console.log("Exam sections found:", exam.sections?.length || 0);
+    console.log("Total questions calculated:", totalQuestions);
 
     ApiResponse.success(res, { exam });
 });
