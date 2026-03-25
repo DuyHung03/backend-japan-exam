@@ -1,6 +1,6 @@
 import { examAttemptRepository, examRepository } from "../repositories/index.js";
 import { AuthorizationError, BadRequestError, NotFoundError } from "../utils/errors.js";
-import { calculateGrade } from "../utils/helpers.js";
+import { calculateGrade, calculateJlptScoring } from "../utils/helpers.js";
 
 const GRACE_PERIOD_SECONDS = 30;
 
@@ -222,17 +222,30 @@ class ExamAttemptService {
         const totalScore = sectionScores.reduce((s, sc) => s + sc.score, 0);
         const percentage = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
 
+        // ── JLPT Scoring Groups ──
+        const jlptResult = calculateJlptScoring(sectionScores, exam.level);
+
+        const summary = {
+            totalQuestions: totalCorrect + totalWrong + totalSkipped,
+            correctAnswers: totalCorrect,
+            wrongAnswers: totalWrong,
+            skippedAnswers: totalSkipped,
+            totalScore: jlptResult ? jlptResult.totalScore : totalScore,
+            maxScore: jlptResult ? jlptResult.maxScore : maxScore,
+            percentage: jlptResult ? jlptResult.percentage : percentage,
+            sectionScores,
+        };
+
+        if (jlptResult) {
+            summary.scoringGroupScores = jlptResult.scoringGroupScores;
+            summary.passingTotal = jlptResult.passingTotal;
+            summary.passed = jlptResult.passed;
+            summary.allGroupsPassed = jlptResult.allGroupsPassed;
+            summary.rank = calculateGrade(jlptResult.percentage);
+        }
+
         return {
-            summary: {
-                totalQuestions: totalCorrect + totalWrong + totalSkipped,
-                correctAnswers: totalCorrect,
-                wrongAnswers: totalWrong,
-                skippedAnswers: totalSkipped,
-                totalScore,
-                maxScore,
-                percentage,
-                sectionScores,
-            },
+            summary,
             detailedResults,
         };
     }
@@ -441,6 +454,30 @@ class ExamAttemptService {
         const percentage = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
         const passed = totalScore >= exam.passingScore && sectionScores.every((s) => s.passed);
 
+        // ── JLPT Scoring Groups ──
+        const jlptResult = calculateJlptScoring(sectionScores, exam.level);
+
+        if (jlptResult) {
+            // Sử dụng kết quả JLPT scoring làm chuẩn
+            const jlptPercentage = jlptResult.percentage;
+            return {
+                totalQuestions: totalCorrect + totalWrong + totalSkipped,
+                correctAnswers: totalCorrect,
+                wrongAnswers: totalWrong,
+                skippedAnswers: totalSkipped,
+                sectionScores,
+                scoringGroupScores: jlptResult.scoringGroupScores,
+                totalScore: jlptResult.totalScore,
+                maxScore: jlptResult.maxScore,
+                passingTotal: jlptResult.passingTotal,
+                percentage: jlptPercentage,
+                passed: jlptResult.passed,
+                allGroupsPassed: jlptResult.allGroupsPassed,
+                rank: calculateGrade(jlptPercentage),
+            };
+        }
+
+        // Fallback cho trường hợp không có config JLPT (custom exam)
         return {
             totalQuestions: totalCorrect + totalWrong + totalSkipped,
             correctAnswers: totalCorrect,

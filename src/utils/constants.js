@@ -98,6 +98,163 @@ export const PAGINATION = {
     MAX_LIMIT: 100,
 };
 
+/**
+ * Cấu hình tính điểm chuẩn JLPT (nguồn: jlpt.jp)
+ *
+ * JLPT thật sử dụng IRT (Item Response Theory) để tính điểm scaled.
+ * Hệ thống này dùng proportional raw-to-scaled scoring:
+ *   scaledScore = (correct / total) × maxScore
+ *
+ * scoringGroups: các nhóm tính điểm chính thức
+ *   - N1/N2/N3: 3 nhóm (言語知識, 読解, 聴解) — mỗi nhóm 0-60
+ *   - N4/N5: 2 nhóm (言語知識+読解 gộp 0-120, 聴解 0-60)
+ *
+ * sections: mapping từ sectionType → scoringGroup
+ * passingTotal: tổng điểm tối thiểu để đạt
+ * Mỗi scoringGroup có sectionsMinScore: điểm tối thiểu nhóm đó phải đạt
+ */
+export const JLPT_SCORING_CONFIG = {
+    N1: {
+        totalPoints: 180,
+        passingTotal: 100,
+        duration: 170, // phút (nghe 60 + đọc+ngữ pháp 110)
+        scoringGroups: [
+            {
+                id: "language_knowledge",
+                name: "言語知識 (文字・語彙・文法)",
+                nameVi: "Kiến thức ngôn ngữ",
+                maxScore: 60,
+                sectionsMinScore: 19,
+                sections: ["vocabulary", "grammar"],
+            },
+            {
+                id: "reading",
+                name: "読解",
+                nameVi: "Đọc hiểu",
+                maxScore: 60,
+                sectionsMinScore: 19,
+                sections: ["reading"],
+            },
+            {
+                id: "listening",
+                name: "聴解",
+                nameVi: "Nghe hiểu",
+                maxScore: 60,
+                sectionsMinScore: 19,
+                sections: ["listening"],
+            },
+        ],
+    },
+    N2: {
+        totalPoints: 180,
+        passingTotal: 90,
+        duration: 155,
+        scoringGroups: [
+            {
+                id: "language_knowledge",
+                name: "言語知識 (文字・語彙・文法)",
+                nameVi: "Kiến thức ngôn ngữ",
+                maxScore: 60,
+                sectionsMinScore: 19,
+                sections: ["vocabulary", "grammar"],
+            },
+            {
+                id: "reading",
+                name: "読解",
+                nameVi: "Đọc hiểu",
+                maxScore: 60,
+                sectionsMinScore: 19,
+                sections: ["reading"],
+            },
+            {
+                id: "listening",
+                name: "聴解",
+                nameVi: "Nghe hiểu",
+                maxScore: 60,
+                sectionsMinScore: 19,
+                sections: ["listening"],
+            },
+        ],
+    },
+    N3: {
+        totalPoints: 180,
+        passingTotal: 95,
+        duration: 140,
+        scoringGroups: [
+            {
+                id: "language_knowledge",
+                name: "言語知識 (文字・語彙・文法)",
+                nameVi: "Kiến thức ngôn ngữ",
+                maxScore: 60,
+                sectionsMinScore: 19,
+                sections: ["vocabulary", "grammar"],
+            },
+            {
+                id: "reading",
+                name: "読解",
+                nameVi: "Đọc hiểu",
+                maxScore: 60,
+                sectionsMinScore: 19,
+                sections: ["reading"],
+            },
+            {
+                id: "listening",
+                name: "聴解",
+                nameVi: "Nghe hiểu",
+                maxScore: 60,
+                sectionsMinScore: 19,
+                sections: ["listening"],
+            },
+        ],
+    },
+    N4: {
+        totalPoints: 180,
+        passingTotal: 90,
+        duration: 125,
+        scoringGroups: [
+            {
+                id: "language_knowledge_reading",
+                name: "言語知識 (文字・語彙・文法)・読解",
+                nameVi: "Kiến thức ngôn ngữ + Đọc hiểu",
+                maxScore: 120,
+                sectionsMinScore: 38,
+                sections: ["vocabulary", "grammar", "reading"],
+            },
+            {
+                id: "listening",
+                name: "聴解",
+                nameVi: "Nghe hiểu",
+                maxScore: 60,
+                sectionsMinScore: 19,
+                sections: ["listening"],
+            },
+        ],
+    },
+    N5: {
+        totalPoints: 180,
+        passingTotal: 80,
+        duration: 105,
+        scoringGroups: [
+            {
+                id: "language_knowledge_reading",
+                name: "言語知識 (文字・語彙・文法)・読解",
+                nameVi: "Kiến thức ngôn ngữ + Đọc hiểu",
+                maxScore: 120,
+                sectionsMinScore: 38,
+                sections: ["vocabulary", "grammar", "reading"],
+            },
+            {
+                id: "listening",
+                name: "聴解",
+                nameVi: "Nghe hiểu",
+                maxScore: 60,
+                sectionsMinScore: 19,
+                sections: ["listening"],
+            },
+        ],
+    },
+};
+
 export const FILE_LIMITS = {
     MAX_IMAGE_SIZE: 10 * 1024 * 1024,
     MAX_AUDIO_SIZE: 50 * 1024 * 1024,

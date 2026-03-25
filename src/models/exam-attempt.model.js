@@ -77,10 +77,26 @@ const examAttemptSchema = new mongoose.Schema(
                     passed: Boolean,
                 },
             ],
+            // Điểm theo nhóm tính điểm chuẩn JLPT (scoring groups)
+            scoringGroupScores: [
+                {
+                    groupId: String, // "language_knowledge", "reading", "listening", "language_knowledge_reading"
+                    groupName: String, // Tên tiếng Nhật
+                    groupNameVi: String, // Tên tiếng Việt
+                    correctAnswers: Number,
+                    totalQuestions: Number,
+                    score: Number, // Điểm scaled (0-60 hoặc 0-120)
+                    maxScore: Number,
+                    minScore: Number, // Điểm tối thiểu cần đạt
+                    passed: Boolean,
+                },
+            ],
             totalScore: Number,
             maxScore: Number,
+            passingTotal: Number, // Điểm tổng cần đạt theo JLPT
             percentage: Number,
             passed: Boolean,
+            allGroupsPassed: Boolean, // Tất cả nhóm tính điểm đều đạt min?
             rank: {
                 type: String,
                 enum: ["A", "B", "C", "D", "F"],

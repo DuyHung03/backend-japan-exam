@@ -4,7 +4,7 @@ import {
     questionRepository,
 } from "../repositories/index.js";
 import { AuthorizationError, BadRequestError, NotFoundError } from "../utils/errors.js";
-import { generateExamCode } from "../utils/helpers.js";
+import { generateExamCode, getJlptDefaults } from "../utils/helpers.js";
 
 class ExamService {
     async createExam({ title, level, sections, ...rest }, userId) {
@@ -35,13 +35,17 @@ class ExamService {
             totalPoints += points;
         }
 
+        // Lấy default JLPT dựa trên level (passingScore, totalPoints)
+        const jlptDefaults = getJlptDefaults(level);
+
         const exam = await examRepository.create({
             examCode,
             title,
             level,
             sections: processedSections,
             totalQuestions,
-            totalPoints,
+            totalPoints: totalPoints || jlptDefaults.totalPoints,
+            passingScore: rest.passingScore ?? jlptDefaults.passingScore,
             createdBy: userId,
             ...rest,
         });

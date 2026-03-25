@@ -1,3 +1,5 @@
+import { JLPT_SCORING_CONFIG } from "./constants.js";
+
 export const generateRandomString = (length = 10) => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let result = "";
@@ -119,4 +121,75 @@ export const parseQueryBoolean = (value) => {
     if (value === "true" || value === "1") return true;
     if (value === "false" || value === "0") return false;
     return undefined;
+};
+
+/**
+ * Tính điểm theo chuẩn JLPT scoring groups.
+ *
+ * Nhận vào danh sách sectionScores (đã tính raw score per section)
+ * và level (N1-N5), trả về:
+ *   - scoringGroupScores: điểm từng nhóm tính điểm JLPT
+ *   - totalScore (scaled 0-180)
+ *   - passed (đạt cả tổng & mỗi nhóm)
+ *   - passingTotal (điểm đạt cấp độ)
+ *
+ * @param {Array} sectionScores - [{sectionType, correctAnswers, totalQuestions, ...}]
+ * @param {string} level - "N1" | "N2" | "N3" | "N4" | "N5"
+ * @returns {Object} JLPT scoring result
+ */
+export const calculateJlptScoring = (sectionScores, level) => {
+    const config = JLPT_SCORING_CONFIG[level];
+    if (!config) return null;
+
+    const scoringGroupScores = config.scoringGroups.map((group) => {
+        // Tìm các section thuộc nhóm này
+        const matchedSections = sectionScores.filter((s) => group.sections.includes(s.sectionType));
+
+        // Gộp raw correct / raw total từ tất cả sections trong nhóm
+        const groupCorrect = matchedSections.reduce((sum, s) => sum + (s.correctAnswers || 0), 0);
+        const groupTotal = matchedSections.reduce((sum, s) => sum + (s.totalQuestions || 0), 0);
+
+        // Proportional raw-to-scaled: (correct / total) × maxScore
+        const score = groupTotal > 0 ? Math.round((groupCorrect / groupTotal) * group.maxScore) : 0;
+
+        return {
+            groupId: group.id,
+            groupName: group.name,
+            groupNameVi: group.nameVi,
+            correctAnswers: groupCorrect,
+            totalQuestions: groupTotal,
+            score,
+            maxScore: group.maxScore,
+            minScore: group.sectionsMinScore,
+            passed: score >= group.sectionsMinScore,
+        };
+    });
+
+    const totalScore = scoringGroupScores.reduce((sum, g) => sum + g.score, 0);
+    const allGroupsPassed = scoringGroupScores.every((g) => g.passed);
+    const passed = totalScore >= config.passingTotal && allGroupsPassed;
+
+    return {
+        scoringGroupScores,
+        totalScore,
+        maxScore: config.totalPoints,
+        passingTotal: config.passingTotal,
+        percentage:
+            config.totalPoints > 0 ? Math.round((totalScore / config.totalPoints) * 100) : 0,
+        passed,
+        allGroupsPassed,
+    };
+};
+
+/**
+ * Lấy giá trị mặc định cho exam dựa trên JLPT level
+ */
+export const getJlptDefaults = (level) => {
+    const config = JLPT_SCORING_CONFIG[level];
+    if (!config) return { totalPoints: 180, passingScore: 100, duration: 120 };
+    return {
+        totalPoints: config.totalPoints,
+        passingScore: config.passingTotal,
+        duration: config.duration,
+    };
 };
