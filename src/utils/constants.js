@@ -3,7 +3,7 @@ export const ERROR = "error";
 
 export const ROLES = {
     USER: "user",
-    TEACHER: "teacher",
+    CREATOR: "creator",
     ADMIN: "admin",
 };
 

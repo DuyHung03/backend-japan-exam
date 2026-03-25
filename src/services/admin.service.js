@@ -40,7 +40,7 @@ class AdminService {
     async getStatistics() {
         const [
             totalUsers,
-            totalTeachers,
+            totalCreators,
             totalExams,
             totalAttempts,
             totalQuestions,
@@ -50,7 +50,7 @@ class AdminService {
             recentAttempts,
         ] = await Promise.all([
             userRepository.count(),
-            userRepository.count({ role: "teacher" }),
+            userRepository.count({ role: "creator" }),
             examRepository.count(),
             examAttemptRepository.count(),
             questionRepository.count(),
@@ -61,7 +61,7 @@ class AdminService {
         ]);
 
         return {
-            users: { total: totalUsers, teachers: totalTeachers },
+            users: { total: totalUsers, creators: totalCreators },
             exams: { total: totalExams, byLevel: examsByLevel },
             questions: { total: totalQuestions, blocks: totalBlocks, bySection: blocksBySection },
             attempts: { total: totalAttempts },

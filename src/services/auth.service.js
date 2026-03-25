@@ -72,6 +72,9 @@ class AuthService {
             fullName: user.fullName,
             role: user.role,
             avatar: user.avatar,
+            phoneNumber: user.phoneNumber,
+            dateOfBirth: user.dateOfBirth,
+            createdAt: user.createdAt,
         };
     }
 }

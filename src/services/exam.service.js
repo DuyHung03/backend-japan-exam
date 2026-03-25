@@ -241,7 +241,7 @@ class ExamService {
     // --- Private helpers ---
 
     _checkOwnership(exam, user) {
-        if (user.role === "teacher" && exam.createdBy.toString() !== user.id) {
+        if (user.role === "creator" && exam.createdBy.toString() !== user.id) {
             throw new AuthorizationError("Not authorized to modify this exam");
         }
     }

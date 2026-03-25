@@ -49,6 +49,9 @@ router.use(protect);
 // Lịch sử làm bài
 router.post("/my-attempts", examAttemptController.getMyAttempts);
 
+// Thống kê profile user
+router.post("/profile-stats", examAttemptController.getProfileStats);
+
 // Chi tiết lần làm bài
 router.post(
     "/get-by-id",

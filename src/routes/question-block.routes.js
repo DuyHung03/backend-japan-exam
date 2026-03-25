@@ -16,7 +16,7 @@ router.use(protect);
  */
 router.post(
     "/create",
-    authorize("teacher", "admin"),
+    authorize("creator", "admin"),
     [
         body("items").isArray({ min: 1 }).withMessage("items must be a non-empty array"),
         body("items.*.section")
@@ -46,7 +46,7 @@ router.post(
 // Cập nhật block metadata
 router.post(
     "/update",
-    authorize("teacher", "admin"),
+    authorize("creator", "admin"),
     [body("blockId").notEmpty().withMessage("Block ID is required"), validate],
     blockController.updateBlock,
 );
@@ -54,7 +54,7 @@ router.post(
 // Cập nhật toàn bộ block + questions
 router.post(
     "/update-full",
-    authorize("teacher", "admin"),
+    authorize("creator", "admin"),
     [
         body("blockId").notEmpty().withMessage("Block ID is required"),
         body("questions").isArray({ min: 1 }).withMessage("Block must have at least 1 question"),
@@ -66,7 +66,7 @@ router.post(
 // Xóa block + tất cả câu hỏi
 router.post(
     "/delete",
-    authorize("teacher", "admin"),
+    authorize("creator", "admin"),
     [body("blockId").notEmpty().withMessage("Block ID is required"), validate],
     blockController.deleteBlock,
 );

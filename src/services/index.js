@@ -1,4 +1,5 @@
 export { default as adminService } from "./admin.service.js";
+export { default as aiService } from "./ai.service.js";
 export { default as authService } from "./auth.service.js";
 export { default as examAttemptService } from "./exam-attempt.service.js";
 export { default as examFeedbackService } from "./exam-feedback.service.js";

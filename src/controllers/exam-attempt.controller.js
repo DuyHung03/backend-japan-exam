@@ -71,3 +71,8 @@ export const getAttemptById = asyncHandler(async (req, res) => {
     );
     ApiResponse.success(res, { attempt });
 });
+
+export const getProfileStats = asyncHandler(async (req, res) => {
+    const stats = await examAttemptService.getProfileStats(req.user.id);
+    ApiResponse.success(res, stats, "Profile stats retrieved successfully");
+});

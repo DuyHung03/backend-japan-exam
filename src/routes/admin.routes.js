@@ -16,7 +16,7 @@ router.post(
     "/users/update-role",
     [
         body("userId").notEmpty().withMessage("User ID is required"),
-        body("role").isIn(["user", "teacher", "admin"]).withMessage("Invalid role"),
+        body("role").isIn(["user", "creator", "admin"]).withMessage("Invalid role"),
         validate,
     ],
     adminController.updateUserRole,

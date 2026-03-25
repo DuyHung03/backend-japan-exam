@@ -486,6 +486,14 @@ class ExamAttemptService {
         }
         return results;
     }
+
+    /**
+     * Lấy thống kê profile cho user.
+     */
+    async getProfileStats(userId) {
+        const mongoose = (await import("mongoose")).default;
+        return examAttemptRepository.getUserStats(new mongoose.Types.ObjectId(userId));
+    }
 }
 
 export default new ExamAttemptService();

@@ -11,21 +11,21 @@ router.use(protect);
 
 router.post(
     "/image",
-    authorize("teacher", "admin"),
+    authorize("creator", "admin"),
     upload.single("image"),
     uploadController.uploadImage,
 );
 
 router.post(
     "/images",
-    authorize("teacher", "admin"),
+    authorize("creator", "admin"),
     upload.array("images", 10),
     uploadController.uploadMultipleImages,
 );
 
 router.post(
     "/audio",
-    authorize("teacher", "admin"),
+    authorize("creator", "admin"),
     upload.single("audio"),
     uploadController.uploadAudio,
 );
@@ -34,7 +34,7 @@ router.post("/avatar", upload.single("avatar"), uploadController.uploadAvatar);
 
 router.post(
     "/delete-file",
-    authorize("teacher", "admin"),
+    authorize("creator", "admin"),
     [body("publicId").notEmpty().withMessage("Public ID is required"), validate],
     uploadController.deleteFile,
 );

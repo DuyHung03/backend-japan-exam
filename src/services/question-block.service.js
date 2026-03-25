@@ -250,7 +250,7 @@ class QuestionBlockService {
     // --- Helpers ---
 
     _checkOwnership(resource, user) {
-        if (user.role === "teacher" && resource.createdBy.toString() !== user.id) {
+        if (user.role === "creator" && resource.createdBy.toString() !== user.id) {
             throw new AuthorizationError("Not authorized to modify this resource");
         }
     }

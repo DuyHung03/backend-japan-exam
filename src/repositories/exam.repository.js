@@ -13,7 +13,7 @@ class ExamRepository extends BaseRepository {
         const filter = {};
 
         // Role-based visibility
-        if (userRole === "teacher") {
+        if (userRole === "creator") {
             filter.createdBy = userId;
         } else if (userRole === "user") {
             filter.status = "published";
@@ -94,6 +94,26 @@ class ExamRepository extends BaseRepository {
             select: "-sections",
             populate: { path: "createdBy", select: "fullName" },
         });
+    }
+
+    /**
+     * Cập nhật câu hỏi embedded trong exam (explanation, translationVi, ...).
+     * Dùng positional operator $[elem] để tìm đúng câu hỏi trong nested array.
+     */
+    async updateEmbeddedQuestion(examId, questionId, updateData) {
+        const setFields = {};
+        for (const [key, value] of Object.entries(updateData)) {
+            setFields[`sections.$[].blocks.$[].questions.$[q].${key}`] = value;
+        }
+
+        return this.model.findByIdAndUpdate(
+            examId,
+            { $set: setFields },
+            {
+                arrayFilters: [{ "q._id": questionId }],
+                new: true,
+            },
+        );
     }
 }
 

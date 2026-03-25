@@ -11,7 +11,7 @@ router.use(protect);
 // Tạo bài thi (copy câu hỏi từ bank)
 router.post(
     "/create",
-    authorize("teacher", "admin"),
+    authorize("creator", "admin"),
     [
         body("title").notEmpty().withMessage("Title is required"),
         body("level")
@@ -37,7 +37,7 @@ router.post(
 // Cập nhật bài thi
 router.post(
     "/update",
-    authorize("teacher", "admin"),
+    authorize("creator", "admin"),
     [body("examId").notEmpty().withMessage("Exam ID is required"), validate],
     examController.updateExam,
 );
@@ -45,7 +45,7 @@ router.post(
 // Thêm block vào exam section
 router.post(
     "/add-block",
-    authorize("teacher", "admin"),
+    authorize("creator", "admin"),
     [
         body("examId").notEmpty().withMessage("Exam ID is required"),
         body("sectionIndex").isNumeric().withMessage("Section index is required"),
@@ -58,7 +58,7 @@ router.post(
 // Xóa block khỏi exam
 router.post(
     "/remove-block",
-    authorize("teacher", "admin"),
+    authorize("creator", "admin"),
     [
         body("examId").notEmpty().withMessage("Exam ID is required"),
         body("sectionIndex").isNumeric().withMessage("Section index is required"),
@@ -71,7 +71,7 @@ router.post(
 // Cập nhật câu hỏi embedded trong exam
 router.post(
     "/update-question",
-    authorize("teacher", "admin"),
+    authorize("creator", "admin"),
     [
         body("examId").notEmpty().withMessage("Exam ID is required"),
         body("sectionIndex").isNumeric().withMessage("Section index is required"),
@@ -86,7 +86,7 @@ router.post(
 // Xóa câu hỏi embedded trong exam
 router.post(
     "/remove-question",
-    authorize("teacher", "admin"),
+    authorize("creator", "admin"),
     [
         body("examId").notEmpty().withMessage("Exam ID is required"),
         body("sectionIndex").isNumeric().withMessage("Section index is required"),
@@ -100,7 +100,7 @@ router.post(
 // Xóa bài thi
 router.post(
     "/delete",
-    authorize("teacher", "admin"),
+    authorize("creator", "admin"),
     [body("examId").notEmpty().withMessage("Exam ID is required"), validate],
     examController.deleteExam,
 );
@@ -108,7 +108,7 @@ router.post(
 // Publish bài thi
 router.post(
     "/publish",
-    authorize("teacher", "admin"),
+    authorize("creator", "admin"),
     [body("examId").notEmpty().withMessage("Exam ID is required"), validate],
     examController.publishExam,
 );
