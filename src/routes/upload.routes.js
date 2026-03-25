@@ -35,7 +35,7 @@ router.post("/avatar", upload.single("avatar"), uploadController.uploadAvatar);
 router.post(
     "/delete-file",
     authorize("teacher", "admin"),
-    [body("filePath").notEmpty().withMessage("File path is required"), validate],
+    [body("publicId").notEmpty().withMessage("Public ID is required"), validate],
     uploadController.deleteFile,
 );
 

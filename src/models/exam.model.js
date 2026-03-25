@@ -119,11 +119,6 @@ const examSchema = new mongoose.Schema(
             required: [true, "JLPT level is required"],
             index: true,
         },
-        type: {
-            type: String,
-            enum: ["mock", "practice", "official_format"],
-            default: "practice",
-        },
         description: String,
         instructions: String,
 

@@ -27,6 +27,15 @@ const examAttemptSchema = new mongoose.Schema(
             index: true,
         },
 
+        // ===== Chế độ thi =====
+        mode: {
+            type: String,
+            enum: ["full_test", "practice"],
+            default: "full_test",
+        },
+        allowedDuration: Number, // phút — giới hạn thời gian server-side
+        filteredSections: [String], // sectionType list khi practice
+
         // ===== Thời gian =====
         startTime: {
             type: Date,

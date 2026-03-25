@@ -1,38 +1,50 @@
 import express from "express";
 import { body } from "express-validator";
 import * as examAttemptController from "../controllers/exam-attempt.controller.js";
-import { protect } from "../middlewares/auth.middleware.js";
+import { optionalAuth, protect } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validator.middleware.js";
 
 const router = express.Router();
 
-router.use(protect);
+// ── Public / guest-friendly routes (optionalAuth) ──
 
-// Bắt đầu làm bài thi
+// Bắt đầu làm bài thi (guest → no DB persist)
 router.post(
     "/start",
+    optionalAuth,
     [body("examId").notEmpty().withMessage("Exam ID is required"), validate],
     examAttemptController.startExam,
 );
 
-// Nộp câu trả lời
+// Nộp bài thi (guest → evaluate in-memory)
+router.post("/submit", optionalAuth, [validate], examAttemptController.submitExam);
+
+// Chấm điểm luyện tập (không lưu DB)
 router.post(
-    "/submit-answer",
-    [
-        body("attemptId").notEmpty().withMessage("Attempt ID is required"),
-        body("questionId").notEmpty().withMessage("Question ID is required"),
-        body("selectedAnswer").notEmpty().withMessage("Selected answer is required"),
-        validate,
-    ],
-    examAttemptController.submitAnswer,
+    "/evaluate-practice",
+    optionalAuth,
+    [body("examId").notEmpty().withMessage("Exam ID is required"), validate],
+    examAttemptController.evaluatePractice,
 );
 
-// Nộp bài thi
+// Lấy thông tin exam cho student (không kèm câu hỏi)
 router.post(
-    "/submit",
-    [body("attemptId").notEmpty().withMessage("Attempt ID is required"), validate],
-    examAttemptController.submitExam,
+    "/exam-info",
+    optionalAuth,
+    [body("examId").notEmpty().withMessage("Exam ID is required"), validate],
+    examAttemptController.getExamInfo,
 );
+
+// Lấy kết quả bài thi đã nộp (kèm chi tiết từng câu)
+router.post(
+    "/result",
+    optionalAuth,
+    [body("attemptId").notEmpty().withMessage("Attempt ID is required"), validate],
+    examAttemptController.getAttemptResult,
+);
+
+// ── Authenticated-only routes ──
+router.use(protect);
 
 // Lịch sử làm bài
 router.post("/my-attempts", examAttemptController.getMyAttempts);
