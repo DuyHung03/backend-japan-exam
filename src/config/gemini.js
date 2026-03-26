@@ -11,7 +11,7 @@ const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 
 export const getGeminiModel = () => {
     if (!genAI) return null;
-    return genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+    return genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 };
 
 export default genAI;
