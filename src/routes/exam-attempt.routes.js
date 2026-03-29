@@ -59,4 +59,13 @@ router.post(
     examAttemptController.getAttemptById,
 );
 
+// Câu sai từ các lần thi gần đây
+router.post("/wrong-questions", examAttemptController.getWrongQuestions);
+
+// Leaderboard
+router.post("/leaderboard", examAttemptController.getLeaderboard);
+
+// Gợi ý bài thi
+router.post("/recommendations", examAttemptController.getRecommendations);
+
 export default router;

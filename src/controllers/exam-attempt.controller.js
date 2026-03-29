@@ -76,3 +76,19 @@ export const getProfileStats = asyncHandler(async (req, res) => {
     const stats = await examAttemptService.getProfileStats(req.user.id);
     ApiResponse.success(res, stats, "Profile stats retrieved successfully");
 });
+
+export const getWrongQuestions = asyncHandler(async (req, res) => {
+    const data = await examAttemptService.getWrongQuestions(req.user.id);
+    ApiResponse.success(res, data, "Wrong questions retrieved");
+});
+
+export const getLeaderboard = asyncHandler(async (req, res) => {
+    const { period, level, limit } = req.body;
+    const data = await examAttemptService.getLeaderboard({ period, level, limit });
+    ApiResponse.success(res, data, "Leaderboard retrieved");
+});
+
+export const getRecommendations = asyncHandler(async (req, res) => {
+    const data = await examAttemptService.getRecommendations(req.user.id);
+    ApiResponse.success(res, data, "Recommendations retrieved");
+});

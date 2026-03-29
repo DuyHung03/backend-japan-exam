@@ -9,10 +9,12 @@ import { BadRequestError, NotFoundError } from "../utils/errors.js";
  * POST /questions/ai-explain
  *
  * Gọi Gemini AI tạo explanation + translationVi.
+ * Nếu có questionId → tự động lưu vào DB.
  * Dùng cho teacher khi tạo/sửa câu hỏi.
  */
 export const aiExplainQuestion = asyncHandler(async (req, res) => {
-    const { questionText, options, correctAnswer, level, sectionType, context } = req.body;
+    const { questionText, options, correctAnswer, level, sectionType, context, questionId } =
+        req.body;
 
     if (!questionText || !correctAnswer) {
         throw new BadRequestError("questionText and correctAnswer are required");
@@ -26,6 +28,20 @@ export const aiExplainQuestion = asyncHandler(async (req, res) => {
         sectionType,
         context,
     });
+
+    // Nếu có questionId → lưu vào bank question
+    if (questionId) {
+        try {
+            const bankQuestion = await questionRepository.findById(questionId);
+            if (bankQuestion && !bankQuestion.explanation) {
+                bankQuestion.explanation = result.explanation;
+                bankQuestion.translationVi = result.translationVi;
+                await bankQuestion.save();
+            }
+        } catch {
+            // Non-critical, không ảnh hưởng flow
+        }
+    }
 
     ApiResponse.success(res, result, "AI explanation generated successfully");
 });

@@ -9,9 +9,11 @@ import Logger from "./utils/logger.js";
 
 import adminRoutes from "./routes/admin.routes.js";
 import authRoutes from "./routes/auth.routes.js";
+import bookmarkRoutes from "./routes/bookmark.routes.js";
 import examAttemptRoutes from "./routes/exam-attempt.routes.js";
 import examFeedbackRoutes from "./routes/exam-feedback.routes.js";
 import examRoutes from "./routes/exam.routes.js";
+import gamificationRoutes from "./routes/gamification.routes.js";
 import publicRoutes from "./routes/public.routes.js";
 import questionBlockRoutes from "./routes/question-block.routes.js";
 import questionRoutes from "./routes/question.routes.js";
@@ -58,6 +60,8 @@ app.use("/api/v1/exam-attempts", examAttemptRoutes);
 app.use("/api/v1/exam-feedbacks", examFeedbackRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/upload", uploadRoutes);
+app.use("/api/v1/bookmarks", bookmarkRoutes);
+app.use("/api/v1/gamification", gamificationRoutes);
 
 app.all("*", (req, res) => {
     Logger.warn(`Route not found: ${req.originalUrl}`);

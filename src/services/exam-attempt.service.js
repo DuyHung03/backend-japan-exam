@@ -492,7 +492,148 @@ class ExamAttemptService {
      */
     async getProfileStats(userId) {
         const mongoose = (await import("mongoose")).default;
-        return examAttemptRepository.getUserStats(new mongoose.Types.ObjectId(userId));
+        const oid = new mongoose.Types.ObjectId(userId);
+        const [baseStats, streak, scoresByDay, scoresBySection, accuracyByLevel, comparisonPair] =
+            await Promise.all([
+                examAttemptRepository.getUserStats(oid),
+                examAttemptRepository.getStreak(oid),
+                examAttemptRepository.getScoresByDay(oid, 30),
+                examAttemptRepository.getScoresBySection(oid),
+                examAttemptRepository.getAccuracyByLevel(oid),
+                examAttemptRepository.getRecentPairForComparison(userId),
+            ]);
+
+        return {
+            ...baseStats,
+            streak,
+            charts: {
+                scoresByDay,
+                scoresBySection,
+                accuracyByLevel,
+            },
+            comparison: comparisonPair.length === 2 ? comparisonPair : null,
+        };
+    }
+
+    /**
+     * Lấy câu sai từ các lần thi gần đây.
+     */
+    async getWrongQuestions(userId) {
+        const mongoose = (await import("mongoose")).default;
+        const oid = new mongoose.Types.ObjectId(userId);
+        const wrongRaw = await examAttemptRepository.getWrongQuestions(oid, 20);
+
+        if (!wrongRaw.length) return [];
+
+        // Group by examId to batch-fetch exams
+        const examIds = [...new Set(wrongRaw.map((w) => w._id.examId.toString()))];
+        const exams = await examRepository.find({ _id: { $in: examIds } }, { lean: true });
+
+        const examMap = new Map(exams.map((e) => [e._id.toString(), e]));
+
+        return wrongRaw
+            .map((w) => {
+                const exam = examMap.get(w._id.examId.toString());
+                if (!exam) return null;
+
+                // Find question in exam
+                let question = null;
+                for (const section of exam.sections || []) {
+                    for (const block of section.blocks || []) {
+                        for (const q of block.questions || []) {
+                            if (q._id.toString() === w._id.questionId.toString()) {
+                                question = {
+                                    _id: q._id,
+                                    questionText: q.questionText,
+                                    options: q.options,
+                                    correctAnswer: q.correctAnswer,
+                                    explanation: q.explanation,
+                                    translationVi: q.translationVi,
+                                    media: q.media,
+                                };
+                                break;
+                            }
+                        }
+                        if (question) break;
+                    }
+                    if (question) break;
+                }
+
+                if (!question) return null;
+
+                return {
+                    examId: exam._id,
+                    examTitle: exam.title,
+                    examLevel: exam.level,
+                    question,
+                    sectionType: w.sectionType,
+                    selectedAnswer: w.selectedAnswer,
+                    wrongCount: w.wrongCount,
+                    lastWrongAt: w.lastWrongAt,
+                };
+            })
+            .filter(Boolean);
+    }
+
+    /**
+     * Leaderboard
+     */
+    async getLeaderboard({ period, level, limit }) {
+        return examAttemptRepository.getLeaderboard({ period, level, limit });
+    }
+
+    /**
+     * Gợi ý bài thi phù hợp – dựa vào kỹ năng yếu nhất.
+     */
+    async getRecommendations(userId) {
+        const mongoose = (await import("mongoose")).default;
+        const oid = new mongoose.Types.ObjectId(userId);
+
+        // Get weakest section
+        const sectionStats = await examAttemptRepository.getScoresBySection(oid);
+        const weakest = sectionStats.length
+            ? sectionStats.reduce(
+                  (min, s) => (s.avgScore < min.avgScore ? s : min),
+                  sectionStats[0],
+              )
+            : null;
+
+        // Get levels not attempted or with low scores
+        const accuracyByLevel = await examAttemptRepository.getAccuracyByLevel(oid);
+        const attemptedLevels = new Set(accuracyByLevel.map((a) => a._id));
+        const allLevels = ["N5", "N4", "N3", "N2", "N1"];
+        const unattemptedLevels = allLevels.filter((l) => !attemptedLevels.has(l));
+        const weakLevels = accuracyByLevel.filter((a) => a.avgPercentage < 60).map((a) => a._id);
+
+        // Get recommended exams
+        const targetLevels = [...unattemptedLevels, ...weakLevels].slice(0, 3);
+        if (!targetLevels.length && accuracyByLevel.length) {
+            // Suggest the level with lowest score
+            const lowestLevel = accuracyByLevel.reduce(
+                (min, a) => (a.avgPercentage < min.avgPercentage ? a : min),
+                accuracyByLevel[0],
+            );
+            targetLevels.push(lowestLevel._id);
+        }
+
+        const recommendedExams = targetLevels.length
+            ? await examRepository.find(
+                  { level: { $in: targetLevels }, status: "published", isPublic: true },
+                  {
+                      select: "title examCode level totalQuestions totalPoints duration",
+                      limit: 6,
+                      sort: { createdAt: -1 },
+                      lean: true,
+                  },
+              )
+            : [];
+
+        return {
+            weakestSection: weakest,
+            weakLevels,
+            unattemptedLevels,
+            recommendedExams,
+        };
     }
 }
 
