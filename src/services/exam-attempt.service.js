@@ -645,7 +645,32 @@ class ExamAttemptService {
     }
 
     async getActiveAttempts(userId) {
-        return examAttemptRepository.findAllInProgress(userId);
+        const attempts = await examAttemptRepository.findAllInProgress(userId);
+        const now = Date.now();
+        const active = [];
+
+        for (const attempt of attempts) {
+            const allowedSeconds = (attempt.allowedDuration || attempt.exam?.duration || 0) * 60;
+            if (!allowedSeconds) {
+                active.push(attempt);
+                continue;
+            }
+            const elapsed = (now - attempt.startTime.getTime()) / 1000;
+            if (elapsed >= allowedSeconds) {
+                // Auto-submit expired attempt
+                attempt.status = "submitted";
+                attempt.endTime = new Date();
+                attempt.submitTime = new Date();
+                attempt.duration = Math.floor(
+                    Math.min(elapsed, allowedSeconds + GRACE_PERIOD_SECONDS),
+                );
+                await attempt.save();
+            } else {
+                active.push(attempt);
+            }
+        }
+
+        return active;
     }
 }
 
