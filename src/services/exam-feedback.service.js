@@ -103,6 +103,21 @@ class ExamFeedbackService {
         await feedback.save();
         return feedback;
     }
+
+    /**
+     * List reports for exams created by a specific user.
+     */
+    async listReportsByCreator(userId, { page = 1, limit = 20 } = {}) {
+        // Find all exams created by this user
+        const exams = await examRepository.find(
+            { createdBy: userId },
+            { select: "_id", lean: true },
+        );
+        const examIds = exams.map((e) => e._id);
+        if (examIds.length === 0) return { data: [], total: 0, page, limit };
+
+        return examFeedbackRepository.listReportsByCreator(examIds, { page, limit });
+    }
 }
 
 export default new ExamFeedbackService();

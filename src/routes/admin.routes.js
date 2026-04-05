@@ -36,5 +36,6 @@ router.post(
 
 // Thống kê
 router.post("/statistics", adminController.getStatistics);
+router.post("/attempt-chart", adminController.getAttemptChart);
 
 export default router;

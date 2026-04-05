@@ -60,6 +60,30 @@ class ExamFeedbackRepository extends BaseRepository {
         if (result.length === 0) return { avg: 0, count: 0 };
         return { avg: Math.round(result[0].avg * 10) / 10, count: result[0].count };
     }
+
+    /**
+     * List reports for exams created by a specific user.
+     */
+    async listReportsByCreator(examIds, { page = 1, limit = 20 } = {}) {
+        const filter = {
+            exam: { $in: examIds },
+            type: "report",
+            status: { $ne: "hidden" },
+            parentId: null,
+        };
+
+        const total = await this.model.countDocuments(filter);
+        const data = await this.model
+            .find(filter)
+            .populate("user", "fullName avatar email")
+            .populate("exam", "title level examCode")
+            .sort("-createdAt")
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .lean();
+
+        return { data, total, page, limit };
+    }
 }
 
 export default new ExamFeedbackRepository();

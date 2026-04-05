@@ -27,3 +27,9 @@ export const getStatistics = asyncHandler(async (req, res) => {
     const stats = await adminService.getStatistics();
     ApiResponse.success(res, stats);
 });
+
+export const getAttemptChart = asyncHandler(async (req, res) => {
+    const { period, count } = req.body;
+    const data = await adminService.getAttemptChart({ period, count });
+    ApiResponse.success(res, data);
+});

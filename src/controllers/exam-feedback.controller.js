@@ -77,3 +77,19 @@ export const updateStatus = asyncHandler(async (req, res) => {
     const feedback = await examFeedbackService.updateStatus(feedbackId, status);
     ApiResponse.success(res, { feedback }, "Status updated");
 });
+
+/**
+ * List reports for exams created by the authenticated creator.
+ */
+export const myReports = asyncHandler(async (req, res) => {
+    const { page, limit } = req.body;
+    const result = await examFeedbackService.listReportsByCreator(req.user.id, { page, limit });
+    ApiResponse.paginate(
+        res,
+        result.data,
+        result.page,
+        result.limit,
+        result.total,
+        "Reports retrieved",
+    );
+});

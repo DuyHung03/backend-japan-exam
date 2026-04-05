@@ -68,4 +68,10 @@ router.post("/leaderboard", examAttemptController.getLeaderboard);
 // Gợi ý bài thi
 router.post("/recommendations", examAttemptController.getRecommendations);
 
+// Thống kê lượt thi theo tuần/tháng (cho creator/admin)
+router.post("/creator-attempt-chart", examAttemptController.getCreatorAttemptChart);
+
+// Bài thi đang làm dở (in-progress)
+router.post("/active", examAttemptController.getActiveAttempts);
+
 export default router;

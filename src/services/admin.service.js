@@ -68,6 +68,10 @@ class AdminService {
             recentAttempts,
         };
     }
+
+    async getAttemptChart({ period = "week", count = 12 }) {
+        return examAttemptRepository.getAttemptsByPeriod(period, count);
+    }
 }
 
 export default new AdminService();

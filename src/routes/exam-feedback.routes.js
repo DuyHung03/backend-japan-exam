@@ -64,4 +64,7 @@ router.post(
     feedbackController.updateStatus,
 );
 
+// Creator: list reports on my exams
+router.post("/my-reports", protect, authorize("creator", "admin"), feedbackController.myReports);
+
 export default router;

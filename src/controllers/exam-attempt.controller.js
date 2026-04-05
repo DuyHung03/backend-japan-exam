@@ -92,3 +92,14 @@ export const getRecommendations = asyncHandler(async (req, res) => {
     const data = await examAttemptService.getRecommendations(req.user.id);
     ApiResponse.success(res, data, "Recommendations retrieved");
 });
+
+export const getCreatorAttemptChart = asyncHandler(async (req, res) => {
+    const { period, count } = req.body;
+    const data = await examAttemptService.getCreatorAttemptChart(req.user.id, { period, count });
+    ApiResponse.success(res, data);
+});
+
+export const getActiveAttempts = asyncHandler(async (req, res) => {
+    const data = await examAttemptService.getActiveAttempts(req.user.id);
+    ApiResponse.success(res, data);
+});

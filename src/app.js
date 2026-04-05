@@ -1,6 +1,5 @@
 import cors from "cors";
 import express from "express";
-import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import morgan from "morgan";
 
@@ -33,12 +32,12 @@ if (process.env.NODE_ENV === "development") {
     app.use(morgan("dev"));
 }
 
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    message: "Too many requests from this IP, please try again later.",
-});
-app.use("/api", limiter);
+// const limiter = rateLimit({
+//     windowMs: 15 * 60 * 1000,
+//     max: 100,
+//     message: "Too many requests from this IP, please try again later.",
+// });
+// app.use("/api", limiter);
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));

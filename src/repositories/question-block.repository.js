@@ -31,6 +31,7 @@ class QuestionBlockRepository extends BaseRepository {
         createdAfter,
         createdBefore,
         blockIds,
+        sort,
     }) {
         const filter = {};
 
@@ -50,10 +51,16 @@ class QuestionBlockRepository extends BaseRepository {
             filter._id = { $in: blockIds.map((id) => new mongoose.Types.ObjectId(id)) };
         }
 
+        const SORT_MAP = {
+            newest: { createdAt: -1 },
+            oldest: { createdAt: 1 },
+        };
+        const resolvedSort = SORT_MAP[sort] || { createdAt: -1 };
+
         return this.paginate(filter, {
             page,
             limit,
-            sort: { createdAt: -1 },
+            sort: resolvedSort,
             populate: { path: "createdBy", select: "fullName email" },
         });
     }

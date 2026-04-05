@@ -15,6 +15,18 @@ class ExamAttemptRepository extends BaseRepository {
         });
     }
 
+    async findAllInProgress(userId) {
+        return this.find(
+            { user: userId, status: "in_progress" },
+            {
+                populate: { path: "exam", select: "title examCode level duration" },
+                select: "exam mode startTime allowedDuration",
+                sort: { startTime: -1 },
+                limit: 5,
+            },
+        );
+    }
+
     async getWithUser(attemptId) {
         return this.findById(attemptId, {
             populate: { path: "user", select: "fullName email" },
@@ -332,6 +344,7 @@ class ExamAttemptRepository extends BaseRepository {
                     avgDuration: { $avg: "$duration" },
                     bestScore: { $max: "$results.percentage" },
                     totalTime: { $sum: "$duration" },
+                    totalWrongAnswers: { $sum: { $ifNull: ["$results.wrongAnswers", 0] } },
                 },
             },
         ]);
@@ -378,10 +391,45 @@ class ExamAttemptRepository extends BaseRepository {
                 avgDuration: 0,
                 bestScore: 0,
                 totalTime: 0,
+                totalWrongAnswers: 0,
             },
             byLevel,
             recentAttempts,
         };
+    }
+
+    /**
+     * Thống kê số lượt thi theo tuần hoặc tháng.
+     * @param {'week'|'month'} period
+     * @param {number} count - số tuần/tháng gần nhất
+     * @param {Array<import('mongoose').Types.ObjectId>} [examIds] - lọc theo đề thi của creator
+     */
+    async getAttemptsByPeriod(period = "week", count = 12, examIds = null) {
+        const now = new Date();
+        const since = new Date(now);
+
+        if (period === "week") {
+            since.setDate(since.getDate() - count * 7);
+        } else {
+            since.setMonth(since.getMonth() - count);
+        }
+        since.setHours(0, 0, 0, 0);
+
+        const match = { status: "submitted", startTime: { $gte: since } };
+        if (examIds) match.exam = { $in: examIds };
+
+        const dateFormat = period === "week" ? "%Y-W%V" : "%Y-%m";
+
+        return this.aggregate([
+            { $match: match },
+            {
+                $group: {
+                    _id: { $dateToString: { format: dateFormat, date: "$startTime" } },
+                    count: { $sum: 1 },
+                },
+            },
+            { $sort: { _id: 1 } },
+        ]);
     }
 }
 

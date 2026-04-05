@@ -140,12 +140,13 @@ class ExamAttemptService {
         const processedAnswers = this._gradeAnswers(submittedAnswers, questionMap, isTimedOut);
         const results = this._calculateResults(exam, attempt, processedAnswers);
 
-        // Save
+        // Save — cap duration to allowed time to avoid inflated stats
+        const maxDuration = allowedSeconds + GRACE_PERIOD_SECONDS;
         attempt.answers = processedAnswers;
         attempt.status = "submitted";
         attempt.endTime = new Date();
         attempt.submitTime = new Date();
-        attempt.duration = Math.floor(elapsed);
+        attempt.duration = Math.floor(Math.min(elapsed, maxDuration));
         attempt.results = results;
         await attempt.save();
 
@@ -634,6 +635,17 @@ class ExamAttemptService {
             unattemptedLevels,
             recommendedExams,
         };
+    }
+
+    async getCreatorAttemptChart(userId, { period = "week", count = 12 }) {
+        const exams = await examRepository.find({ createdBy: userId }, { select: "_id" });
+        const examIds = exams.map((e) => e._id);
+        if (!examIds.length) return [];
+        return examAttemptRepository.getAttemptsByPeriod(period, count, examIds);
+    }
+
+    async getActiveAttempts(userId) {
+        return examAttemptRepository.findAllInProgress(userId);
     }
 }
 

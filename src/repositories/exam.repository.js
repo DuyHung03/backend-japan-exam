@@ -9,7 +9,7 @@ class ExamRepository extends BaseRepository {
     /**
      * Search exams with role-based filtering.
      */
-    async searchExams({ page = 1, limit = 20, level, status, search, userRole, userId }) {
+    async searchExams({ page = 1, limit = 20, level, status, search, userRole, userId, sort }) {
         const filter = {};
 
         // Role-based visibility
@@ -37,10 +37,16 @@ class ExamRepository extends BaseRepository {
             }
         }
 
+        const SORT_MAP = {
+            newest: { createdAt: -1 },
+            oldest: { createdAt: 1 },
+        };
+        const resolvedSort = SORT_MAP[sort] || { isFeatured: -1, createdAt: -1 };
+
         return this.paginate(filter, {
             page,
             limit,
-            sort: { isFeatured: -1, createdAt: -1 },
+            sort: resolvedSort,
             select: "-sections",
             populate: { path: "createdBy", select: "fullName email" },
         });
