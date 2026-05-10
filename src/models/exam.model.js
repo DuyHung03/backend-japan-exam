@@ -189,4 +189,19 @@ const examSchema = new mongoose.Schema(
 examSchema.index({ level: 1, status: 1, isPublic: 1 });
 examSchema.index({ createdBy: 1 });
 
+examSchema.pre("save", function (next) {
+    let total = 0;
+    if (Array.isArray(this.sections)) {
+        for (const section of this.sections) {
+            if (Array.isArray(section.blocks)) {
+                for (const block of section.blocks) {
+                    total += Array.isArray(block.questions) ? block.questions.length : 0;
+                }
+            }
+        }
+    }
+    this.totalQuestions = total;
+    next();
+});
+
 export default mongoose.model("Exam", examSchema);

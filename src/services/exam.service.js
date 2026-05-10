@@ -179,6 +179,26 @@ class ExamService {
         return exam;
     }
 
+    async updateBlockContext(examId, sectionIndex, blockIndex, contextData, user) {
+        const exam = await examRepository.findById(examId);
+        if (!exam) throw new NotFoundError("Exam");
+        this._checkOwnership(exam, user);
+
+        const block = exam.sections?.[sectionIndex]?.blocks?.[blockIndex];
+        if (!block) throw new NotFoundError("Block");
+
+        const allowed = ["text", "audioUrl", "audioScript", "imageUrl"];
+        for (const key of allowed) {
+            if (contextData[key] !== undefined) {
+                block.context = block.context || {};
+                block.context[key] = contextData[key];
+            }
+        }
+
+        await exam.save();
+        return exam;
+    }
+
     async removeQuestionFromExam(examId, sectionIndex, blockIndex, questionIndex, user) {
         const exam = await examRepository.findById(examId);
         if (!exam) throw new NotFoundError("Exam");

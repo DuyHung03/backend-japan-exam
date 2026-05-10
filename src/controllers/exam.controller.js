@@ -57,6 +57,18 @@ export const updateExamQuestion = asyncHandler(async (req, res) => {
     ApiResponse.success(res, { exam }, "Question updated successfully");
 });
 
+export const updateBlockContext = asyncHandler(async (req, res) => {
+    const { examId, sectionIndex, blockIndex, contextData } = req.body;
+    const exam = await examService.updateBlockContext(
+        examId,
+        sectionIndex,
+        blockIndex,
+        contextData,
+        req.user,
+    );
+    ApiResponse.success(res, { exam }, "Block context updated successfully");
+});
+
 export const removeQuestionFromExam = asyncHandler(async (req, res) => {
     const { examId, sectionIndex, blockIndex, questionIndex } = req.body;
     const exam = await examService.removeQuestionFromExam(

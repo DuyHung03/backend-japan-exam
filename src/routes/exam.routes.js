@@ -83,6 +83,20 @@ router.post(
     examController.updateExamQuestion,
 );
 
+// Cập nhật context (audio/image/text) của block trong exam
+router.post(
+    "/update-block-context",
+    authorize("creator", "admin"),
+    [
+        body("examId").notEmpty().withMessage("Exam ID is required"),
+        body("sectionIndex").isNumeric().withMessage("Section index is required"),
+        body("blockIndex").isNumeric().withMessage("Block index is required"),
+        body("contextData").isObject().withMessage("Context data is required"),
+        validate,
+    ],
+    examController.updateBlockContext,
+);
+
 // Xóa câu hỏi embedded trong exam
 router.post(
     "/remove-question",
