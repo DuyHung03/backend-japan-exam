@@ -7,7 +7,7 @@ import { AuthorizationError, BadRequestError, NotFoundError } from "../utils/err
 import { generateExamCode } from "../utils/helpers.js";
 
 class ExamService {
-    async createExam({ title, level, sections, ...rest }, userId) {
+    async createExam({ title, level, sections, totalPoints: _ignored, ...rest }, userId) {
         const examCode = generateExamCode(level, title);
         let totalQuestions = 0;
         let totalPoints = 0;
